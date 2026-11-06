@@ -1,0 +1,57 @@
+# Configuration du module 1 — Sourcing
+
+scoring:
+  threshold: 4            # score minimum pour garder une offre
+  title_multiplier: 3     # un mot-clé dans le titre pèse 3x plus
+  positive:               # mot-clé : poids
+    instrumentiste: 5
+    instrumentation: 5
+    automaticien: 5
+    automatisme: 4
+    métrologue: 4
+    métrologie: 3
+    électromécanicien: 4
+    électromécanique: 3
+    maintenance: 2
+    régulation: 3
+    électricien: 2
+    électrotechnicien: 3
+    plc: 3
+    api: 1
+    siemens: 2
+    schneider: 2
+    scada: 3
+    capteur: 2
+    variateur: 2
+    process: 1
+    technicien: 1
+  negative:
+    commercial: -4
+    vendeur: -4
+    comptable: -5
+    chauffeur: -5
+    caissier: -5
+    assistant(e) commercial: -5
+    marketing: -4
+    rh: -2
+
+max_details_per_run: 40   # fiches détaillées téléchargées par run (politesse + minutes)
+delay_seconds: 2
+
+sources:
+  jobivoire:
+    enabled: true
+    url: https://jobivoire.ci/jobs
+    pages: 3              # pages de liste parcourues (?page=N)
+  educarriere:
+    enabled: true
+    url: https://emploi.educarriere.ci/page/all
+    pages: 3
+  novojob:
+    enabled: true
+    rss: https://www.novojob.com/cote-d-ivoire/rss
+  email_alerts:           # Emploi.ci (bloqué Cloudflare) + LinkedIn via alertes Gmail
+    enabled: true
+    imap_folder: jobs-alerts
+    senders: ["emploi.ci", "linkedin.com", "educarriere.ci", "novojob.com"]
+    since_days: 2

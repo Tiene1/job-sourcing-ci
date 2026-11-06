@@ -1,0 +1,46 @@
+name: Module 1 - Sourcing des offres
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"     # toutes les 6 h, minute décalée
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/sourcing/**"
+      - "config.yaml"
+      - ".github/workflows/sourcing.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourcing
+  cancel-in-progress: false
+
+jobs:
+  sourcing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Collecter les offres
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.sourcing.main --config config.yaml --out out
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: offres
+          path: out/
+          retention-days: 14
