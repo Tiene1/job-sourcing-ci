@@ -3,7 +3,6 @@
 <head>
 <base target="_top">
 <meta charset="utf-8">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{--bg:#f4f6fa;--card:#fff;--ink:#1d2433;--muted:#6b7385;--line:#e3e7ef;--pri:#1f3a5f;--acc:#2f7de1;
         --ok:#1e9e6a;--warn:#e19a2f;--bad:#d64545;--r:12px}
@@ -173,8 +172,16 @@ const isInterview = r => INTERVIEW.includes(r.statut) || !!r.date_entretien;
 const weekKey = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x.toISOString().slice(0,10); };
 
 // ------------------------------------------------------------ chargement / navigation
+function showError(m){
+  const l=$('loading'); l.classList.remove('hidden');
+  l.innerHTML=`<div class="card" style="text-align:left;color:#d64545;max-width:760px;margin:auto"><b>Le tableau de bord n'a pas pu charger les données.</b><br><br>${esc(m)}<br><br><span style="color:#6b7385">Copie ce message à Claude. Vérifie aussi Apps Script → Exécutions.</span></div>`;
+}
 async function load(){
-  D = await call('api_getData');
+  $('loading').classList.remove('hidden'); $('loading').textContent='Chargement…';
+  const slow=setTimeout(()=>showError('Le serveur ne répond pas après 30 s (api_getData).'),30000);
+  try { D = await call('api_getData'); }
+  catch(e){ clearTimeout(slow); showError(e && e.message ? e.message : String(e)); return; }
+  clearTimeout(slow);
   $('loading').classList.add('hidden');
   $('testBadge').classList.toggle('hidden', String(D.params.mode_test).toUpperCase()!=='TRUE');
   fillFilters(); show(view);
@@ -298,6 +305,7 @@ function renderInsights({R,sent,rep,itw,srcStat,bs,top,waiting,now}){
 }
 
 function drawChart(id,type,data,opt={}){
+  if(!window.Chart) return;
   if(charts[id]) charts[id].destroy();
   if(data.datasets.some(d=>d.yAxisID==='y1')){   // double axe : barres à gauche (nombres), courbe à droite (%)
     data.datasets.forEach(d=>{ if(!d.yAxisID) d.yAxisID='y'; });
@@ -433,7 +441,11 @@ async function saveParams(){
 async function runNow(fn,msg){ toast('En cours…'); D=await call(fn); toast(msg); show(view); }
 async function renderJournal(){ const j=await call('api_journal'); $('jtab').innerHTML=j.map(r=>`<tr><td style="white-space:nowrap">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join(''); }
 
+window.onerror = (msg, src, line) => { showError(`Erreur JavaScript : ${msg} (ligne ${line})`); };
 load();
 </script>
+<script async src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+        onload="if(view==='dash' && D.rows) renderDash()"
+        onerror="toast('Graphiques indisponibles (librairie non chargée) — le reste fonctionne',6000)"></script>
 </body>
 </html>
