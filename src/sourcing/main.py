@@ -101,8 +101,7 @@ def run(cfg_path: Path, out: Path) -> None:
         if detail and budget > 0:
             budget -= 1
             try:
-                detail(http, o)
-                score(o, cfg["scoring"])
+                detail(http, o)   # le score initial (titre + carte) est conservé
             except Exception as exc:
                 errors.append(f"détail {o.url}: {type(exc).__name__}"[:200])
         o.email_contact = extract_email(o.description)

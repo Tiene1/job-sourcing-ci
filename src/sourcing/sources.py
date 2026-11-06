@@ -68,9 +68,6 @@ def generic_detail(http: Http, o: Offre) -> None:
     soup = http.soup(o.url)
     for tag in soup(["script", "style", "nav", "footer", "header"]):
         tag.decompose()
-    h1 = soup.find("h1")
-    if h1 and len(clean(h1.get_text())) > 3:
-        o.titre = clean(h1.get_text(" "))
     o.description = clean(soup.get_text(" "))[:5000]
 
 

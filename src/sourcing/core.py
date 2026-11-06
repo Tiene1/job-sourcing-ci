@@ -50,6 +50,8 @@ class Offre:
     @property
     def cle_doublon(self) -> str:
         """Même poste chez la même entreprise publié sur 2 sites."""
+        if not self.entreprise:
+            return self.id
         return hashlib.sha1(f"{norm(self.entreprise)}|{norm(self.titre)}".encode()).hexdigest()[:12]
 
     def to_row(self) -> dict:
