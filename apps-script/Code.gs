@@ -73,8 +73,8 @@ function setupTriggers() {
 
 // ============================================================ WEB APP
 function doGet() {
-  return HtmlService.createTemplateFromFile('Index').evaluate()
-    .setTitle('Pipeline Emploi — Cédric')
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Pilote Emploi')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
