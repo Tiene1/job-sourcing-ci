@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#f4f6fa;--card:#fff;--ink:#1d2433;--muted:#6b7385;--line:#e3e7ef;--pri:#1f3a5f;--acc:#2f7de1;
+        --ok:#1e9e6a;--warn:#e19a2f;--bad:#d64545;--r:12px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:var(--pri);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header h1{font-size:17px;margin:0;font-weight:600}
+  nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav button{background:transparent;border:0;color:#cfd9e8;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+  nav button.on{background:rgba(255,255,255,.16);color:#fff}
+  .spacer{flex:1}
+  .badge-test{background:var(--bad);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px}
+  main{padding:18px;max-width:1400px;margin:auto}
+  .grid{display:grid;gap:14px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+  .kpi .v{font-size:26px;font-weight:700}.kpi .l{color:var(--muted);font-size:12px;margin-top:2px}
+  .kpi .s{font-size:12px;margin-top:4px}
+  .charts{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+  .card h3{margin:0 0 10px;font-size:14px}
+  .hint{color:var(--muted);font-size:12px;margin:-6px 0 8px}
+  .insight{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.insight:last-child{border:0}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}
+  textarea{width:100%;min-height:120px;resize:vertical}
+  .btn{border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;background:var(--acc);color:#fff}
+  .btn.sec{background:#e8edf5;color:var(--ink)}.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.warn{background:var(--warn)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .list{display:grid;gap:8px}
+  .row{display:grid;grid-template-columns:1fr auto;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+  .row:hover{border-color:var(--acc)}
+  .row .t{font-weight:600}.row .m{color:var(--muted);font-size:12px;margin-top:3px}
+  .chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+  .kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);gap:10px;overflow-x:auto;padding-bottom:6px}
+  .col{background:#e9edf4;border-radius:10px;padding:8px;min-height:120px}
+  .col h4{margin:2px 4px 8px;font-size:13px;display:flex;justify-content:space-between}
+  .kc{background:#fff;border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer;font-size:13px;border:1px solid var(--line)}
+  .modal{position:fixed;inset:0;background:rgba(15,25,40,.5);display:none;align-items:flex-start;justify-content:center;padding:20px;overflow:auto;z-index:20}
+  .modal.on{display:flex}
+  .sheet{background:#fff;border-radius:14px;max-width:980px;width:100%;padding:20px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:800px){.two{grid-template-columns:1fr}.charts{grid-template-columns:1fr}}
+  .lbl{font-size:12px;color:var(--muted);margin:10px 0 4px;display:block}
+  .steps{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+  .step{flex:1;min-width:160px;border:1px dashed var(--line);border-radius:10px;padding:10px;font-size:13px}
+  .step.done{border-style:solid;border-color:var(--ok);background:#f0faf5}
+  pre{white-space:pre-wrap;background:#f7f8fb;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:12px}
+  table{width:100%;border-collapse:collapse}td,th{padding:7px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1d2433;color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:30}
+  .loading{padding:60px;text-align:center;color:var(--muted)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Pipeline Emploi</h1>
+  <nav id="nav">
+    <button data-v="dash" class="on">Tableau de bord</button>
+    <button data-v="cands">Candidatures</button>
+    <button data-v="kanban">Pipeline</button>
+    <button data-v="profil">Base profil</button>
+    <button data-v="params">Paramètres</button>
+    <button data-v="journal">Journal</button>
+  </nav>
+  <span class="spacer"></span>
+  <span id="testBadge" class="badge-test hidden">MODE TEST</span>
+  <button class="btn sec" onclick="load()">↻</button>
+</header>
+
+<main>
+  <div id="loading" class="loading">Chargement…</div>
+
+  <!-- ================= TABLEAU DE BORD ================= -->
+  <section id="v-dash" class="hidden">
+    <div class="grid kpis" id="kpis"></div>
+    <div class="grid charts" style="margin-top:14px">
+      <div class="card"><h3>💡 Recommandations</h3><p class="hint">Ce qui marche, ce qui bloque, quoi faire maintenant</p><div id="insights"></div></div>
+      <div class="card"><h3>Entonnoir de conversion</h3><p class="hint">Où les candidatures se perdent</p><canvas id="cFunnel"></canvas></div>
+      <div class="card"><h3>Activité par semaine</h3><p class="hint">Régularité de ta recherche</p><canvas id="cWeek"></canvas></div>
+      <div class="card"><h3>Répartition par statut</h3><canvas id="cStatus"></canvas></div>
+      <div class="card"><h3>Performance par source</h3><p class="hint">Offres pertinentes, envois et taux de réponse</p><canvas id="cSource"></canvas></div>
+      <div class="card"><h3>Taux de réponse selon l'adéquation IA</h3><p class="hint">Pour régler le seuil de candidature</p><canvas id="cAdeq"></canvas></div>
+      <div class="card"><h3>Mots-clés des offres</h3><p class="hint">Fréquence dans les offres et taux de réponse associé</p><canvas id="cKw"></canvas></div>
+      <div class="card"><h3>Délais</h3><div id="delays"></div></div>
+    </div>
+  </section>
+
+  <!-- ================= CANDIDATURES ================= -->
+  <section id="v-cands" class="hidden">
+    <div class="filters">
+      <input id="fq" placeholder="🔎 Rechercher (poste, entreprise…)" style="flex:1;min-width:200px">
+      <select id="fs"><option value="">Tous les statuts</option></select>
+      <select id="fsrc"><option value="">Toutes les sources</option></select>
+      <select id="fsort">
+        <option value="prio">Tri : priorité</option><option value="date">Tri : plus récentes</option>
+        <option value="adeq">Tri : adéquation</option><option value="limite">Tri : date limite</option>
+      </select>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <!-- ================= KANBAN ================= -->
+  <section id="v-kanban" class="hidden"><div class="kanban" id="kanban"></div></section>
+
+  <!-- ================= BASE PROFIL ================= -->
+  <section id="v-profil" class="hidden">
+    <div class="card">
+      <h3>Base profil (lue par l'IA à chaque génération)</h3>
+      <p class="hint">Ajoute ici tes nouveaux CV (expériences, compétences) et lettres de référence. PDF, Word, TXT ou Google Docs.</p>
+      <div class="filters">
+        <select id="pcat"><option value="CV">CV</option><option value="LM">Lettre de motivation</option></select>
+        <input type="file" id="pfile" accept=".pdf,.docx,.txt,.md">
+        <button class="btn" onclick="uploadProfil()">Ajouter</button>
+      </div>
+      <table><thead><tr><th>Type</th><th>Fichier</th><th>Modifié</th></tr></thead><tbody id="ptable"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ================= PARAMÈTRES ================= -->
+  <section id="v-params" class="hidden">
+    <div class="card">
+      <h3>Paramètres</h3>
+      <table id="ptab"></table>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="saveParams()">Enregistrer</button>
+        <button class="btn sec" onclick="runNow('api_runSendNow','Envoi lancé')">Traiter la file d'envoi maintenant</button>
+        <button class="btn sec" onclick="runNow('api_runRepliesNow','Vérification des réponses faite')">Vérifier les réponses maintenant</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= JOURNAL ================= -->
+  <section id="v-journal" class="hidden">
+    <div class="card"><h3>Journal</h3><table><tbody id="jtab"></tbody></table></div>
+  </section>
+</main>
+
+<!-- ================= FICHE CANDIDATURE ================= -->
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="sheet" id="sheet"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = {'Nouveau':'#8a94a6','À préparer':'#2f7de1','À envoyer':'#7b4fd6','Test envoyé':'#b38bf0','Envoyé':'#e19a2f',
+  'Réponse reçue':'#17a2b8','Entretien':'#1e9e6a','Offre reçue':'#0b7a4b','Refusé':'#d64545','Sans réponse':'#a0a7b4',
+  'Candidature manuelle':'#5d6d7e','Ignorée':'#c9ced8','Erreur envoi':'#b03a2e'};
+const SENT = ['Envoyé','Réponse reçue','Entretien','Offre reçue','Refusé','Sans réponse'];
+const REPLIED = ['Réponse reçue','Entretien','Offre reçue','Refusé'];
+const INTERVIEW = ['Entretien','Offre reçue'];
+let D = {rows:[],params:{},statuts:[]}, charts = {}, view = 'dash', current = null;
+
+// ------------------------------------------------------------ utilitaires
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const chip = s => `<span class="chip" style="background:${COLORS[s]||'#999'}22;color:${COLORS[s]||'#555'}">${esc(s)}</span>`;
+const pd = s => { if(!s) return null; let m=String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})/); if(m) return new Date(+m[3],m[2]-1,+m[1]);
+  m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1],m[2]-1,+m[3]); const d=new Date(s); return isNaN(d)?null:d; };
+const days = (a,b) => (a&&b) ? (b-a)/864e5 : null;
+const pct = (a,b) => b ? Math.round(100*a/b) : 0;
+const toast = (m,ms=2600) => { const t=$('toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',ms); };
+const call = (fn,...args) => new Promise((ok,ko)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>{toast('Erreur : '+e.message,5000);ko(e);})[fn](...args));
+const isSent = r => SENT.includes(r.statut) || !!r.date_envoi;
+const isReplied = r => REPLIED.includes(r.statut) || !!r.date_reponse;
+const isInterview = r => INTERVIEW.includes(r.statut) || !!r.date_entretien;
+const weekKey = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x.toISOString().slice(0,10); };
+
+// ------------------------------------------------------------ chargement / navigation
+async function load(){
+  D = await call('api_getData');
+  $('loading').classList.add('hidden');
+  $('testBadge').classList.toggle('hidden', String(D.params.mode_test).toUpperCase()!=='TRUE');
+  fillFilters(); show(view);
+}
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+function show(v){
+  view = v;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
+  document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+  $('v-'+v).classList.remove('hidden');
+  ({dash:renderDash, cands:renderList, kanban:renderKanban, profil:renderProfil, params:renderParams, journal:renderJournal})[v]();
+}
+
+// ------------------------------------------------------------ TABLEAU DE BORD
+function renderDash(){
+  const R = D.rows, now = new Date();
+  const sent = R.filter(isSent), rep = R.filter(isReplied), itw = R.filter(isInterview);
+  const by = s => R.filter(r=>r.statut===s).length;
+  const thisWeek = weekKey(now);
+  const sentWeek = sent.filter(r=>r.date_envoi && weekKey(pd(r.date_envoi))===thisWeek).length;
+  const kpi = (v,l,s='',c='') => `<div class="card kpi"><div class="v" style="color:${c}">${v}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+  $('kpis').innerHTML =
+    kpi(R.length,'Offres pertinentes collectées') +
+    kpi(by('À préparer'),'À préparer','Claude Design + dépôt du CV','#2f7de1') +
+    kpi(by('À envoyer'),'En file d’envoi','','#7b4fd6') +
+    kpi(sent.length,'Candidatures envoyées',`${sentWeek} cette semaine`,'#e19a2f') +
+    kpi(pct(rep.length,sent.length)+'%','Taux de réponse',`${rep.length} réponse(s)`,'#17a2b8') +
+    kpi(itw.length,'Entretiens',`${pct(itw.length,sent.length)}% des envois`,'#1e9e6a') +
+    kpi(by('Erreur envoi'),'Erreurs d’envoi','',by('Erreur envoi')?'#d64545':'');
+
+  // entonnoir
+  const prepared = R.filter(r=>r.date_preparation).length;
+  drawChart('cFunnel','bar',{labels:['Collectées','Préparées (IA)','Envoyées','Réponses','Entretiens'],
+    datasets:[{data:[R.length,prepared,sent.length,rep.length,itw.length],backgroundColor:['#8a94a6','#2f7de1','#e19a2f','#17a2b8','#1e9e6a']}]},
+    {indexAxis:'y',plugins:{legend:{display:false}}});
+
+  // semaines (10 dernières)
+  const weeks=[]; for(let i=9;i>=0;i--){const d=new Date(now); d.setDate(d.getDate()-7*i); weeks.push(weekKey(d));}
+  const count = (key) => weeks.map(w => R.filter(r=>r[key] && weekKey(pd(r[key]))===w).length);
+  drawChart('cWeek','line',{labels:weeks.map(w=>w.slice(5)),datasets:[
+    {label:'Collectées',data:count('date_detection'),borderColor:'#8a94a6',tension:.3},
+    {label:'Envoyées',data:count('date_envoi'),borderColor:'#e19a2f',tension:.3},
+    {label:'Réponses',data:count('date_reponse'),borderColor:'#1e9e6a',tension:.3}]});
+
+  // statuts
+  const st = D.statuts.filter(s=>by(s));
+  drawChart('cStatus','doughnut',{labels:st,datasets:[{data:st.map(by),backgroundColor:st.map(s=>COLORS[s])}]},{plugins:{legend:{position:'right'}}});
+
+  // sources
+  const srcs=[...new Set(R.map(r=>String(r.source).split(':').pop()))];
+  const srcStat = srcs.map(s=>{const rs=R.filter(r=>String(r.source).split(':').pop()===s); const se=rs.filter(isSent); return {s,n:rs.length,se:se.length,rep:se.filter(isReplied).length};});
+  drawChart('cSource','bar',{labels:srcs,datasets:[
+    {label:'Offres',data:srcStat.map(x=>x.n),backgroundColor:'#c9d6ea'},
+    {label:'Envoyées',data:srcStat.map(x=>x.se),backgroundColor:'#e19a2f'},
+    {label:'Taux de réponse %',data:srcStat.map(x=>pct(x.rep,x.se)),type:'line',yAxisID:'y1',borderColor:'#1e9e6a'}]},
+    {scales:{y1:{position:'right',min:0,max:100,grid:{display:false}}}});
+
+  // adéquation
+  const buckets=[['<50',0,49],['50-69',50,69],['70-84',70,84],['85+',85,100]];
+  const bs = buckets.map(([l,a,b])=>{const rs=sent.filter(r=>{const v=+r.adequation; return v>=a&&v<=b;}); return {l,n:rs.length,rep:rs.filter(isReplied).length};});
+  drawChart('cAdeq','bar',{labels:bs.map(b=>b.l),datasets:[
+    {label:'Envoyées',data:bs.map(b=>b.n),backgroundColor:'#c9d6ea'},
+    {label:'Taux de réponse %',data:bs.map(b=>pct(b.rep,b.n)),type:'line',yAxisID:'y1',borderColor:'#17a2b8'}]},
+    {scales:{y1:{position:'right',min:0,max:100,grid:{display:false}}}});
+
+  // mots-clés
+  const kw={}; R.forEach(r=>String(r.mots_cles||'').split(',').map(k=>k.trim()).filter(Boolean).forEach(k=>{
+    kw[k]=kw[k]||{n:0,se:0,rep:0}; kw[k].n++; if(isSent(r)){kw[k].se++; if(isReplied(r)) kw[k].rep++;}}));
+  const top=Object.entries(kw).sort((a,b)=>b[1].n-a[1].n).slice(0,10);
+  drawChart('cKw','bar',{labels:top.map(t=>t[0]),datasets:[
+    {label:'Offres',data:top.map(t=>t[1].n),backgroundColor:'#2f7de1'},
+    {label:'Taux de réponse %',data:top.map(t=>pct(t[1].rep,t[1].se)),type:'line',yAxisID:'y1',borderColor:'#1e9e6a'}]},
+    {scales:{y1:{position:'right',min:0,max:100,grid:{display:false}}}});
+
+  // délais
+  const avg = a => a.length ? (a.reduce((x,y)=>x+y,0)/a.length).toFixed(1) : '—';
+  const dPrep = R.filter(r=>r.date_preparation&&r.date_envoi).map(r=>days(pd(r.date_preparation),pd(r.date_envoi)));
+  const dRep = R.filter(r=>r.date_envoi&&r.date_reponse).map(r=>days(pd(r.date_envoi),pd(r.date_reponse)));
+  const waiting = R.filter(r=>r.statut==='À préparer').map(r=>days(pd(r.date_preparation||r.date_detection),now)).filter(x=>x!=null);
+  $('delays').innerHTML = `<table>
+    <tr><td>Ma réactivité (préparation → envoi)</td><td><b>${avg(dPrep)} j</b></td></tr>
+    <tr><td>Délai de réponse des recruteurs</td><td><b>${avg(dRep)} j</b></td></tr>
+    <tr><td>Ancienneté moyenne des offres en attente</td><td><b>${avg(waiting)} j</b></td></tr>
+    <tr><td>Envois réels aujourd’hui / plafond</td><td><b>${sent.filter(r=>String(r.date_envoi).startsWith(new Date().toISOString().slice(0,10))).length} / ${esc(D.params.plafond_jour)}</b></td></tr></table>`;
+
+  renderInsights({R,sent,rep,itw,srcStat,bs,top,waiting,now});
+}
+
+function renderInsights({R,sent,rep,itw,srcStat,bs,top,waiting,now}){
+  const out=[], add=(c,t)=>out.push(`<div class="insight"><span class="dot" style="background:${c}"></span><div>${t}</div></div>`);
+  const prep = R.filter(r=>r.statut==='À préparer');
+  const urgent = prep.filter(r=>{const d=pd(r.date_limite); return d && (d-now)/864e5<=3 && (d-now)>-864e5;});
+  if(String(D.params.mode_test).toUpperCase()==='TRUE') add('#d64545','<b>Mode test actif</b> : aucun email ne part chez les recruteurs. Désactive-le dans Paramètres quand tes tests sont concluants.');
+  if(urgent.length) add('#d64545',`<b>${urgent.length} offre(s) expirent sous 3 jours</b> : ${urgent.slice(0,3).map(r=>esc(r.titre)).join(', ')}. À traiter en priorité.`);
+  const old = waiting.filter(d=>d>5).length;
+  if(old) add('#e19a2f',`<b>${old} candidature(s) attendent depuis plus de 5 jours.</b> Les offres se pourvoient vite : prépare les meilleures ou ignore les autres.`);
+  const err = R.filter(r=>r.statut==='Erreur envoi');
+  if(err.length) add('#d64545',`<b>${err.length} erreur(s) d’envoi</b> (ex. : ${esc(err[0].erreur)}). Corrige et repasse en « À envoyer ».`);
+  const replies = R.filter(r=>r.statut==='Réponse reçue');
+  if(replies.length) add('#17a2b8',`<b>${replies.length} réponse(s) à lire et classer</b> (Entretien / Refusé).`);
+  const relance = R.filter(r=>r.statut==='Envoyé' && days(pd(r.date_envoi),now) >= +(D.params.relance_jours||10));
+  if(relance.length) add('#e19a2f',`<b>${relance.length} candidature(s) sans réponse depuis ${D.params.relance_jours} jours</b> : une relance courte augmente nettement le taux de réponse.`);
+  const manual = R.filter(r=>r.statut==='À préparer' && !r.email_contact).length;
+  if(manual) add('#5d6d7e',`<b>${manual} offre(s) sans email de contact</b> : candidature via portail ou en personne → passe-les en « Candidature manuelle ».`);
+  if(sent.length>=10){
+    const rate = pct(rep.length,sent.length);
+    if(rate<10) add('#d64545',`Taux de réponse faible (<b>${rate}%</b> sur ${sent.length} envois) : retravaille l’accroche des lettres, cible des offres à plus forte adéquation, ou relance.`);
+    else add('#1e9e6a',`Taux de réponse de <b>${rate}%</b> sur ${sent.length} envois : la méthode fonctionne, garde le rythme.`);
+    const best = srcStat.filter(s=>s.se>=3).sort((a,b)=>b.rep/b.se-a.rep/a.se)[0];
+    const worst = srcStat.filter(s=>s.se>=5 && s.rep===0);
+    if(best) add('#1e9e6a',`Source la plus efficace : <b>${esc(best.s)}</b> (${pct(best.rep,best.se)}% de réponses).`);
+    worst.forEach(w=>add('#e19a2f',`<b>${esc(w.s)}</b> : ${w.se} envois sans aucune réponse. Diminue sa priorité.`));
+    const low = bs[0], high = bs.slice(2).reduce((a,b)=>({n:a.n+b.n,rep:a.rep+b.rep}),{n:0,rep:0});
+    if(low.n>=3 && high.n>=3 && pct(high.rep,high.n) > pct(low.rep,low.n)+10)
+      add('#2f7de1',`Les offres à forte adéquation (≥70%) répondent <b>${pct(high.rep,high.n)}%</b> contre ${pct(low.rep,low.n)}% sous 50% : concentre-toi sur les mieux notées.`);
+  } else if(sent.length) add('#8a94a6',`Statistiques de performance disponibles à partir de 10 envois (${sent.length} pour l’instant).`);
+  const weekSent = sent.filter(r=>days(pd(r.date_envoi),now)<=7).length;
+  if(R.length>5 && weekSent<3) add('#e19a2f',`Seulement <b>${weekSent}</b> envoi(s) ces 7 derniers jours. Un objectif de 5 à 10 par semaine est raisonnable.`);
+  if(!out.length) add('#1e9e6a','Rien d’urgent. Le pipeline tourne.');
+  $('insights').innerHTML = out.join('');
+}
+
+function drawChart(id,type,data,opt={}){
+  if(charts[id]) charts[id].destroy();
+  if(data.datasets.some(d=>d.yAxisID==='y1')){   // double axe : barres à gauche (nombres), courbe à droite (%)
+    data.datasets.forEach(d=>{ if(!d.yAxisID) d.yAxisID='y'; });
+    opt.scales = Object.assign({y:{position:'left',beginAtZero:true,ticks:{precision:0}}}, opt.scales||{});
+  }
+  charts[id] = new Chart($(id),{type,data,options:Object.assign({responsive:true,plugins:{legend:{labels:{boxWidth:12}}}},opt)});
+}
+
+// ------------------------------------------------------------ LISTE
+function fillFilters(){
+  $('fs').innerHTML = '<option value="">Tous les statuts</option>' + D.statuts.map(s=>`<option>${esc(s)}</option>`).join('');
+  const src=[...new Set(D.rows.map(r=>r.source))];
+  $('fsrc').innerHTML = '<option value="">Toutes les sources</option>' + src.map(s=>`<option>${esc(s)}</option>`).join('');
+  ['fq','fs','fsrc','fsort'].forEach(i=>$(i).oninput=renderList);
+}
+const PRIO = {'Réponse reçue':0,'Erreur envoi':1,'À préparer':2,'À envoyer':3,'Test envoyé':4,'Entretien':5,'Nouveau':6};
+function renderList(){
+  const q=$('fq').value.toLowerCase(), s=$('fs').value, src=$('fsrc').value, sort=$('fsort').value;
+  let rs = D.rows.filter(r=>(!s||r.statut===s)&&(!src||r.source===src)&&(!q||`${r.titre} ${r.entreprise} ${r.lieu} ${r.mots_cles}`.toLowerCase().includes(q)));
+  if(!s) rs = rs.filter(r=>r.statut!=='Ignorée');
+  const by = {prio:(a,b)=>(PRIO[a.statut]??9)-(PRIO[b.statut]??9)||(+b.adequation||0)-(+a.adequation||0),
+    date:(a,b)=>String(b.date_detection).localeCompare(String(a.date_detection)),
+    adeq:(a,b)=>(+b.adequation||0)-(+a.adequation||0),
+    limite:(a,b)=>(pd(a.date_limite)||9e15)-(pd(b.date_limite)||9e15)};
+  rs.sort(by[sort]);
+  $('list').innerHTML = rs.map(r=>`<div class="row" onclick="openCand('${esc(r.id)}')">
+    <div><div class="t">${esc(r.titre)}</div>
+    <div class="m">${esc(r.entreprise||'—')} · ${esc(r.lieu||'')} · ${esc(r.source)} · score ${esc(r.score)}${r.adequation?` · adéquation <b>${esc(r.adequation)}%</b>`:''}${r.date_limite?` · limite ${esc(r.date_limite)}`:''}${r.email_contact?' · ✉️':''}${r.cv_file_id?' · 📄 CV':''}</div></div>
+    <div>${chip(r.statut)}</div></div>`).join('') || '<div class="card">Aucune candidature pour ces filtres.</div>';
+}
+
+// ------------------------------------------------------------ KANBAN
+function renderKanban(){
+  const cols=['À préparer','À envoyer','Test envoyé','Envoyé','Réponse reçue','Entretien','Refusé','Erreur envoi'];
+  $('kanban').innerHTML = cols.map(c=>{const rs=D.rows.filter(r=>r.statut===c);
+    return `<div class="col"><h4>${chip(c)}<span>${rs.length}</span></h4>${rs.slice(0,40).map(r=>
+      `<div class="kc" onclick="openCand('${esc(r.id)}')"><b>${esc(r.titre)}</b><br><span style="color:#6b7385">${esc(r.entreprise||r.source)}${r.adequation?' · '+esc(r.adequation)+'%':''}</span></div>`).join('')}</div>`;}).join('');
+}
+
+// ------------------------------------------------------------ FICHE
+function openCand(id){
+  current = D.rows.find(r=>String(r.id)===String(id)); const r=current;
+  const steps = [['1. Copier le prompt','Colle-le dans Claude Design',!!r.prompt_claude_design],
+    ['2. Déposer le CV (PDF)','Export PDF de Claude Design',!!r.cv_file_id],
+    ['3. Relire la lettre','Corrige si besoin puis enregistre',!!r.lettre],
+    ['4. Envoyer','Part au prochain passage (≤10 min)',isSent(r)]];
+  $('sheet').innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+      <div><h2 style="margin:0 0 4px">${esc(r.titre)}</h2>
+      <div style="color:#6b7385">${esc(r.entreprise||'Entreprise ?')} · ${esc(r.lieu||'')} · ${esc(r.contrat||'')} · <a href="${esc(r.url)}" target="_blank">voir l'offre ↗</a></div></div>
+      <div>${chip(r.statut)} <button class="btn sec" onclick="closeModal()">✕</button></div></div>
+    ${r.adequation?`<p><b>Adéquation IA : ${esc(r.adequation)}%</b> — ${esc(r.points_forts)}</p>`:''}
+    ${r.notes?`<p style="color:#6b7385;font-size:12px">${esc(r.notes)}</p>`:''}
+    ${r.erreur?`<p style="color:#d64545"><b>Erreur :</b> ${esc(r.erreur)}</p>`:''}
+    <div class="steps">${steps.map(s=>`<div class="step ${s[2]?'done':''}"><b>${s[0]}</b><br>${s[1]}</div>`).join('')}</div>
+    <div class="two">
+      <div>
+        <span class="lbl">Prompt Claude Design</span>
+        <textarea id="eprompt" readonly style="min-height:160px">${esc(r.prompt_claude_design)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn" onclick="copyPrompt()">📋 Copier le prompt</button>
+          <a class="btn sec" href="https://claude.ai" target="_blank" style="text-decoration:none">Ouvrir Claude ↗</a></div>
+        <span class="lbl">CV (PDF)</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="cvfile" accept="application/pdf">
+          <button class="btn" onclick="uploadCv()">Déposer</button>
+          ${r.cv_file_id?`<a href="https://drive.google.com/file/d/${esc(r.cv_file_id)}/view" target="_blank">📄 voir le CV déposé</a>`:''}</div>
+        <span class="lbl">Contenu du CV proposé par l'IA</span><pre>${esc(r.contenu_cv)}</pre>
+      </div>
+      <div>
+        <span class="lbl">Email du recruteur</span><input id="eemail" style="width:100%" value="${esc(r.email_contact)}">
+        <span class="lbl">Objet</span><input id="eobjet" style="width:100%" value="${esc(r.objet_mail)}">
+        <span class="lbl">Lettre (corps du mail)</span><textarea id="elettre" style="min-height:260px">${esc(r.lettre)}</textarea>
+        <span class="lbl">Entreprise</span><input id="eent" style="width:100%" value="${esc(r.entreprise)}">
+        <span class="lbl">Notes</span><input id="enotes" style="width:100%" value="${esc(r.notes)}">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn sec" onclick="save()">💾 Enregistrer</button>
+      <button class="btn ok" onclick="save('À envoyer')" ${r.cv_file_id?'':'disabled title="Dépose d’abord le CV"'}>🚀 Valider l’envoi</button>
+      <button class="btn warn" onclick="save('Candidature manuelle')">Candidature manuelle</button>
+      <button class="btn bad" onclick="save('Ignorée')">Ignorer</button>
+      ${isSent(r)?`<button class="btn" onclick="save('Entretien')">Entretien</button><button class="btn bad" onclick="save('Refusé')">Refusé</button><button class="btn ok" onclick="save('Offre reçue')">Offre reçue</button>`:''}
+      ${r.statut==='Test envoyé'||r.statut==='Erreur envoi'?`<button class="btn sec" onclick="save('À préparer')">↩ Remettre à préparer</button>`:''}
+    </div>
+    <details style="margin-top:14px"><summary>Texte de l'offre</summary><pre>${esc(r.description)}</pre></details>`;
+  $('modal').classList.add('on');
+}
+function closeModal(){ $('modal').classList.remove('on'); }
+function copyPrompt(){
+  const t=$('eprompt'); t.select();
+  (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>toast('Prompt copié')).catch(()=>{document.execCommand('copy');toast('Prompt copié');});
+}
+async function save(statut){
+  const f={email_contact:$('eemail').value.trim(),objet_mail:$('eobjet').value,lettre:$('elettre').value,entreprise:$('eent').value,notes:$('enotes').value};
+  if(statut) f.statut=statut;
+  if(statut==='À envoyer' && !confirm(`Envoyer à ${f.email_contact} ?${String(D.params.mode_test).toUpperCase()==='TRUE'?'\n(MODE TEST : l’email partira vers ton adresse de test)':''}`)) return;
+  await call('api_update',current.id,f);
+  Object.assign(current,f); toast(statut?`Statut → ${statut}`:'Enregistré');
+  if(statut) closeModal(); show(view);
+}
+function readFile(input){ return new Promise((ok,ko)=>{const f=input.files[0]; if(!f) return ko(new Error('Aucun fichier'));
+  const fr=new FileReader(); fr.onload=()=>ok({name:f.name,type:f.type||'application/octet-stream',b64:String(fr.result).split(',')[1]}); fr.readAsDataURL(f);}); }
+async function uploadCv(){
+  const f=await readFile($('cvfile')).catch(e=>toast(e.message)); if(!f) return;
+  if(!/pdf/i.test(f.type)) return toast('Le CV doit être un PDF');
+  toast('Dépôt en cours…'); const res=await call('api_uploadCv',current.id,f.name,f.b64);
+  current.cv_file_id=res.id; toast('CV déposé ✔'); openCand(current.id);
+}
+
+// ------------------------------------------------------------ BASE PROFIL
+async function renderProfil(){
+  $('ptable').innerHTML='<tr><td>Chargement…</td></tr>';
+  const files=await call('api_listProfil'); drawProfil(files);
+}
+function drawProfil(files){
+  $('ptable').innerHTML = files.map(f=>`<tr><td>${esc(f.cat)}</td><td><a href="${esc(f.url)}" target="_blank">${esc(f.name)}</a></td><td>${esc(f.date)}</td></tr>`).join('')
+    || '<tr><td colspan="3">Aucun document : ajoute au moins un CV pour activer la génération IA.</td></tr>';
+}
+async function uploadProfil(){
+  const f=await readFile($('pfile')).catch(e=>toast(e.message)); if(!f) return;
+  toast('Ajout…'); drawProfil(await call('api_uploadProfil',$('pcat').value,f.name,f.type,f.b64)); toast('Ajouté ✔ (pris en compte au prochain run)');
+}
+
+// ------------------------------------------------------------ PARAMÈTRES / JOURNAL
+function renderParams(){
+  $('ptab').innerHTML = Object.entries(D.params).map(([k,v])=>`<tr><td style="width:240px"><b>${esc(k)}</b></td><td><input data-k="${esc(k)}" value="${esc(v)}" style="width:100%"></td></tr>`).join('');
+}
+async function saveParams(){
+  const o={}; document.querySelectorAll('#ptab input').forEach(i=>o[i.dataset.k]=i.value);
+  D.params=await call('api_saveParams',o); toast('Paramètres enregistrés'); load();
+}
+async function runNow(fn,msg){ toast('En cours…'); D=await call(fn); toast(msg); show(view); }
+async function renderJournal(){ const j=await call('api_journal'); $('jtab').innerHTML=j.map(r=>`<tr><td style="white-space:nowrap">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join(''); }
+
+load();
+</script>
+</body>
+</html>

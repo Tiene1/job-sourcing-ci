@@ -1,4 +1,4 @@
-name: Module 1 - Sourcing des offres
+name: Pipeline - Sourcing + Génération
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/sourcing/**"
+      - "src/**"
       - "config.yaml"
       - ".github/workflows/sourcing.yml"
 
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   sourcing:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -35,9 +35,14 @@ jobs:
           SHEET_ID: ${{ secrets.SHEET_ID }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m src.sourcing.main --config config.yaml --out out
+      - name: Préparer les candidatures (IA)
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python -m src.generation.main --config config.yaml
       - uses: actions/upload-artifact@v5
         if: always()
         with:

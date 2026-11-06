@@ -1,4 +1,18 @@
-# job-sourcing-ci — Module 1 : Sourcing des offres (Côte d'Ivoire)
+# job-sourcing-ci — Pipeline de candidatures automatisé (Côte d'Ivoire)
+
+| Module | Où | Rôle |
+|---|---|---|
+| 1 Sourcing | GitHub Actions (`src/sourcing`) | Jobivoire, Educarriere, Novojob RSS, alertes email → Sheets (`Nouveau`) |
+| 2 Génération | GitHub Actions (`src/generation`) | Base_Profil (Drive) + Gemini/Groq → contenu CV, prompt Claude Design, objet, lettre (`À préparer`) |
+| 3 Validation | Apps Script Web App (`apps-script/`) | Tableau de bord : copier le prompt, déposer le CV PDF, relire, valider (`À envoyer`) |
+| 4 Envoi | Apps Script (toutes les 10 min) | Contrôles + Gmail (lettre + CV) → `Envoyé` |
+| 5 Suivi | Apps Script (toutes les heures) | Détection des réponses → `Entretien` / `Refusé` / `Réponse reçue` |
+| Alertes | Apps Script (2×/jour) | Email récapitulatif uniquement s'il y a du travail |
+
+![Tableau de bord](docs/apercu_tableau_de_bord.png)
+
+---
+## Historique : Module 1 — Sourcing des offres
 
 Pipeline de recherche d'emploi automatisé — postes **instrumentiste / automaticien / maintenance industrielle**.
 Budget : **0 €**. Exécution : **cloud (GitHub Actions)**, indépendante du PC.

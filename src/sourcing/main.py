@@ -4,7 +4,6 @@ python -m src.sourcing.main --config config.yaml --out out
 Secrets optionnels (variables d'environnement) :
   GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID     → écriture Google Sheets
   GMAIL_USER, GMAIL_APP_PASSWORD           → alertes email (Emploi.ci, LinkedIn)
-  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID     → notification de fin de run
 """
 
 from __future__ import annotations
@@ -12,70 +11,37 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 from pathlib import Path
 
-import httpx
 import yaml
 
+from ..common.store import Store, enabled
 from .core import Http, extract_email, score
 from .sources import COLLECTORS
 
-SHEET_COLUMNS = [
-    "id", "date_detection", "source", "url", "entreprise", "titre", "lieu", "contrat",
-    "mots_cles", "score", "email_contact", "date_pub", "date_limite", "statut",
-]
+CSV_COLUMNS = ["id", "date_detection", "source", "url", "entreprise", "titre", "lieu",
+               "contrat", "mots_cles", "score", "email_contact", "date_pub", "date_limite", "statut"]
 
 
 # ------------------------------------------------------------ stockage
-def existing_ids() -> set[str]:
-    ws = _worksheet()
-    return set(ws.col_values(1)[1:]) if ws else set()
-
-
-def _worksheet():
-    raw, sheet_id = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"), os.getenv("SHEET_ID")
-    if not (raw and sheet_id):
-        return None
-    import gspread
-
-    gc = gspread.service_account_from_dict(json.loads(raw))
-    sh = gc.open_by_key(sheet_id)
-    try:
-        ws = sh.worksheet("Candidatures")
-    except gspread.WorksheetNotFound:
-        ws = sh.add_worksheet("Candidatures", rows=1000, cols=len(SHEET_COLUMNS))
-    if ws.row_values(1) != SHEET_COLUMNS:
-        ws.update([SHEET_COLUMNS], "A1")
-    return ws
-
-
-def save(rows: list[dict], out: Path) -> str:
+def save(rows: list[dict], out: Path, store) -> str:
     out.mkdir(parents=True, exist_ok=True)
     with open(out / "offres.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=SHEET_COLUMNS, extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
-    ws = _worksheet()
-    if ws and rows:
-        ws.append_rows([[r.get(c, "") for c in SHEET_COLUMNS] for r in rows],
-                       value_input_option="USER_ENTERED")   # une seule écriture groupée
+    if store:
+        store.append(rows)   # une seule écriture groupée
         return "Google Sheets + CSV"
-    return "CSV uniquement (secrets Sheets absents)"
-
-
-def notify(text: str) -> None:
-    token, chat = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
-    if token and chat:
-        httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                   data={"chat_id": chat, "text": text[:4000]}, timeout=20)
+    return "CSV uniquement (secrets Google absents)"
 
 
 # ------------------------------------------------------------ pipeline
 def run(cfg_path: Path, out: Path) -> None:
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     http = Http(delay=cfg.get("delay_seconds", 2))
-    known = existing_ids()
+    store = Store() if enabled() else None
+    known = store.ids() if store else set()
     stats, kept, seen_keys, errors = {}, [], set(), []
 
     for name, scfg in cfg["sources"].items():
@@ -115,7 +81,7 @@ def run(cfg_path: Path, out: Path) -> None:
         r = o.to_row()
         r["statut"] = "Nouveau"
         rows.append(r)
-    where = save(rows, out)
+    where = save(rows, out, store)
 
     lines = [f"Sourcing : {len(rows)} nouvelle(s) offre(s) pertinente(s) → {where}"]
     lines += [f"- {o.titre} | {o.entreprise or o.source} | score {o.score} | "
@@ -128,7 +94,8 @@ def run(cfg_path: Path, out: Path) -> None:
     summary = "\n".join(lines)
     print("\n" + summary)
     (out / "summary.json").write_text(json.dumps({"stats": stats, "errors": errors}, indent=2))
-    notify(summary)
+    if store:
+        store.log("sourcing", lines[0] + (" | " + lines[-1] if errors or silent else ""))
 
 
 if __name__ == "__main__":
