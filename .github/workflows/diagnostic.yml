@@ -38,7 +38,9 @@ jobs:
 
       - name: Publier le rapport dans le résumé du run
         if: always()
-        run: cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+          cat out/report.md
 
       - name: Sauvegarder rapport + HTML bruts
         if: always()
