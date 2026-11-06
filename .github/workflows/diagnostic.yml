@@ -2,6 +2,11 @@ name: Diagnostic des sources CI
 
 on:
   workflow_dispatch:   # lancement manuel (onglet Actions > Run workflow)
+  push:                # relance automatique quand le diagnostic ou ses sources changent
+    branches: [main]
+    paths:
+      - "diagnostic/**"
+      - ".github/workflows/diagnostic.yml"
 
 permissions:
   contents: read
