@@ -1,0 +1,45 @@
+# Sources ivoiriennes testées par le diagnostic.
+# offer_link_regex : motif des liens d'offres attendu dans le HTML (sert à vérifier
+# que les offres sont bien présentes côté serveur, sans JavaScript).
+
+keywords:
+  - instrumentiste
+  - instrumentation
+  - automaticien
+  - automatisme
+  - électromécanicien
+  - maintenance
+  - régulation
+  - métrologue
+  - électricien
+
+sources:
+  - id: emploi_ci
+    name: Emploi.ci
+    url: https://www.emploi.ci/recherche-jobs-cote-ivoire/automaticien
+    offer_link_regex: "/offre-emploi-cote-ivoire/"   # hypothèse à confirmer
+    rss_candidates: [/rss, /rss.xml, /feed]
+
+  - id: novojob
+    name: Novojob CI
+    url: https://www.novojob.com/cote-d-ivoire/offres-d-emploi/automaticien
+    offer_link_regex: "/offres-d-emploi/offre-d-emploi/cote-d-ivoire/"
+    rss_candidates: [/cote-d-ivoire/rss]
+
+  - id: jobivoire
+    name: Jobivoire.ci
+    url: https://jobivoire.ci/jobs
+    offer_link_regex: "/job/[A-Za-z0-9]{9}"
+    rss_candidates: [/rss, /feed]
+
+  - id: educarriere
+    name: Educarriere.ci
+    url: https://emploi.educarriere.ci/page/all
+    offer_link_regex: "/offre-\\d+-"
+    rss_candidates: [/rss, /feed]
+
+  - id: aej
+    name: Agence Emploi Jeunes
+    url: https://agenceemploijeunes.ci
+    offer_link_regex: "offre"
+    rss_candidates: [/rss, /feed]

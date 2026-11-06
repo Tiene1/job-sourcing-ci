@@ -1,0 +1,44 @@
+name: Diagnostic des sources CI
+
+on:
+  workflow_dispatch:   # lancement manuel (onglet Actions > Run workflow)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10   # garde-fou quota
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: IP publique du runner (pour info)
+        run: curl -s https://api.ipify.org && echo
+
+      - name: Lancer le diagnostic
+        run: python diagnostic/diag.py --config diagnostic/sources.yaml --out out
+
+      - name: Publier le rapport dans le résumé du run
+        if: always()
+        run: cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sauvegarder rapport + HTML bruts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-report
+          path: out/
+          retention-days: 7
