@@ -1,6 +1,6 @@
 """Prompt de génération : une offre + la base profil → contenu CV, prompt Claude Design, lettre."""
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v4"
 
 PROMPT = """Tu es un conseiller en recrutement spécialisé dans l'industrie (instrumentation, automatisme,
 maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Cédric.
@@ -30,8 +30,21 @@ maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Céd
   TIA Portal, GRAFCET, schémas électriques, armoire/coffret, consignation, maintenance préventive
   et corrective, diagnostic de pannes, GMAO, mise en service, réseaux industriels, supervision)
   UNIQUEMENT quand le fait correspondant existe dans la base.
-- Section « Projets techniques » (2 à 3 projets) tirée du portfolio et des CV si elle renforce la
-  candidature : nom du projet, technologies, ce que tu as réalisé.
+- FORMAT DES MISSIONS (comme mes CV de référence) : chaque puce commence par un libellé court en
+  gras suivi de deux-points, puis la mission. Ex. « **Installation :** déploiement d'équipements
+  électroniques sur 8 sites (alimentation électrique, câblage, coffrets, mise en service). »
+  Libellés typiques : Installation, Mise en service, Diagnostic & maintenance, Programmation,
+  Étalonnage & qualification, Chaîne de mesure, Acquisition, Supervision, Intégration IT/OT,
+  Préparation & traçabilité, Sécurité.
+- SECTION « RÉALISATIONS » : OBLIGATOIRE dès qu'au moins un projet de la base (sections
+  « Réalisations » / « Projets » des CV, ou projets du portfolio) est en lien avec l'offre
+  (même domaine technique, mêmes outils, même type d'équipement). Mets 2 à 3 réalisations, les
+  plus proches de l'offre d'abord, au format :
+  « **Nom du projet (année) :** ce qui a été réalisé, avec les technologies/équipements précis. »
+  Ex. « **Automatisation d'une station d'épuration (2023) :** programmation d'automates Siemens
+  S7-300/1200 sous TIA Portal, paramétrage des variables de procédé (niveaux, débits, cycles) et
+  IHM de supervision sous WinCC. »
+  N'invente aucun projet ; si aucun projet n'est pertinent, omets la section.
 - Compétences regroupées par familles (ex. Automatisme & instrumentation · Électricité industrielle
   · Maintenance · Réseaux & IoT · Outils/logiciels), mots-clés de l'offre en premier.
 - Titre du CV = intitulé du poste visé (adapté), profil de 3 lignes orienté valeur pour l'employeur.
@@ -64,8 +77,15 @@ Texte de l'offre :
   "ecarts": ["exigences non couvertes par le profil"],
   "contenu_cv": "Contenu complet du CV adapté, en Markdown : En-tête (nom, titre ciblé sur le poste, contacts tels que dans la base) ; Profil (3 lignes) ; Compétences clés (ordonnées selon l'offre) ; Expériences (rôles réels, puces orientées résultats, vocabulaire de l'offre) ; Formation ; Certifications ; Langues. Doit tenir sur UNE page A4.",
   "objet_mail": "Si l'offre IMPOSE un objet (ex. « Objet de candidature : RECRUTEMENT … » ou « mentionner la référence … en objet »), reprends-le EXACTEMENT. Sinon : Candidature – <intitulé exact du poste> – <référence de l'offre si présente> – Yoma Paul Cédric TIENE",
+  "portfolio_pertinent": false,
+  "portfolio_raison": "pourquoi le portfolio apporte (ou non) une preuve utile pour CETTE offre",
   "lettre": "Corps du mail = lettre de motivation (180 à 260 mots) : formule d'appel, accroche liée à l'entreprise/au poste, 2 paragraphes de preuves tirées de la base, disponibilité, mention du CV en pièce jointe, formule de politesse, signature avec nom et téléphone tels que dans la base."
 }}
+LIEN PORTFOLIO : "portfolio_pertinent" = true UNIQUEMENT si au moins un projet du portfolio
+prouve directement une compétence demandée par l'offre (ex. offre IoT, développement, supervision,
+systèmes connectés). Pour une offre de maintenance, d'électricité ou d'électromécanique sans lien
+avec ces projets : false. Si false, la lettre ne doit contenir AUCUN lien ni mention du portfolio.
+Si true, mentionne-le en une phrase qui cite le projet concerné, avec le lien {portfolio_url}.
 "adequation" est un entier de 0 à 100 (honnête : correspondance réelle entre l'offre et le profil).
 """
 

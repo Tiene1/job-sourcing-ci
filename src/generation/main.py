@@ -70,13 +70,16 @@ def run(cfg_path: Path) -> None:
             ko += 1
             store.update(r["_row"], {"erreur": f"Génération : {exc}"[:500]})
             continue
+        lettre = data.get("lettre", "")
+        if not data.get("portfolio_pertinent"):        # garde-fou : pas de portfolio hors sujet
+            lettre = _strip_portfolio(lettre)
         fields = {
             "adequation": data.get("adequation", ""),
             "points_forts": " • ".join(data.get("points_forts", [])),
             "contenu_cv": data.get("contenu_cv", ""),
             "prompt_claude_design": build_design_prompt(data.get("contenu_cv", "")),
             "objet_mail": data.get("objet_mail", ""),
-            "lettre": data.get("lettre", ""),
+            "lettre": lettre,
             "date_preparation": now(),
             "erreur": "",
             "statut": "À préparer",
@@ -139,9 +142,22 @@ def _backfill_emails(store: Store, limit: int = 25) -> None:
         store.log("generation", f"Recherche d'emails : {found}/{checked} trouvé(s)")
 
 
+def _strip_portfolio(text: str) -> str:
+    """Retire toute phrase mentionnant le portfolio ou un lien vers celui-ci."""
+    import re
+    out = []
+    for line in (text or "").split("\n"):
+        parts = re.split(r"(?<=[.!?])\s+", line)
+        keep = [p for p in parts if not re.search(r"portfolio|cedrictiene\.tech|https?://", p, re.I)]
+        out.append(" ".join(keep))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+
+
 def _notes(data: dict, model: str) -> str:
     ecarts = data.get("ecarts") or []
-    return f"Prompt {PROMPT_VERSION} | Modèle : {model}" + (f" | Écarts : {' ; '.join(ecarts)}" if ecarts else "")
+    pf = "Portfolio cité" if data.get("portfolio_pertinent") else "Portfolio non cité"
+    return (f"Prompt {PROMPT_VERSION} | Modèle : {model} | {pf} : {data.get('portfolio_raison', '')}"[:400]
+            + (f" | Écarts : {' ; '.join(ecarts)}" if ecarts else ""))
 
 
 def _int(v) -> int:
