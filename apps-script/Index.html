@@ -1151,16 +1151,16 @@ function drawerBody(r) {
   }
   if (t === 'candidature') {
     const cvUrl = state.cvUrls[r.id];
-    let h = '<div class="sec"><h3>Destinataire</h3><div class="form-grid">' +
+    let h = '<div class="sec"><h3>① Créer le CV avec Claude Design</h3><p class="meta" style="margin:0 0 10px">Le prompt ci-dessous contient déjà tout le texte du CV (après la ligne « === CONTENU DU CV === »). Copiez-le, collez-le dans Claude Design, exportez le PDF puis déposez-le plus bas (③).</p><pre class="code" style="max-height:420px;overflow:auto"><span class="code-l">Prompt</span><button type="button" class="btn btn-sm" data-copy-prompt' + (r.prompt_claude_design ? '' : ' disabled') + '>' + ic('copy') + 'Copier le prompt</button>' + (r.prompt_claude_design ? esc(r.prompt_claude_design) : '<span class="meta">Aucun prompt généré.</span>') + '</pre><p style="margin:8px 0 0"><a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Ouvrir Claude ↗</a></p></div>';
+    h += '<div class="sec"><details class="toggle" open><summary>Aperçu du contenu du CV</summary><div class="tbody md">' + md(r.contenu_cv) + '</div></details></div>';
+    h += '<div class="sec"><h3>Destinataire</h3><div class="form-grid">' +
       fieldInput('entreprise', 'Entreprise', 'text') + fieldInput('email_contact', 'Email de contact', 'email') +
       fieldInput('lieu', 'Lieu', 'text') + fieldInput('contrat', 'Contrat', 'text') + '</div></div>';
-    h += '<div class="sec"><h3>Email de candidature</h3><div class="form-grid">' + fieldInput('objet_mail', 'Objet du mail', 'text', 'span2') + fieldInput('lettre', 'Lettre / corps du mail', 'textarea', 'span2') + '</div></div>';
-    h += '<div class="sec"><h3>CV joint (PDF)</h3><div class="cv-state">' +
+    h += '<div class="sec"><h3>② Relire l’email de candidature</h3><div class="form-grid">' + fieldInput('objet_mail', 'Objet du mail', 'text', 'span2') + fieldInput('lettre', 'Lettre / corps du mail', 'textarea', 'span2') + '</div></div>';
+    h += '<div class="sec"><h3>③ Déposer le CV (PDF)</h3><div class="cv-state">' +
       (r.cv_file_id ? '<span class="tag t-green">✓ CV déposé</span>' + (cvUrl ? '<a href="' + esc(cvUrl) + '" target="_blank" rel="noopener noreferrer">Ouvrir le PDF ↗</a>' : '<span class="meta">' + esc(r.cv_file_id) + '</span>')
         : '<span class="tag t-orange">Aucun CV déposé</span><span class="meta">Générez le PDF puis déposez-le ici : « Valider l’envoi » sera alors possible.</span>') +
       '</div><form class="file-drop" id="cvForm"><label class="sr" for="cvFile">Fichier PDF du CV</label><input type="file" id="cvFile" accept="application/pdf,.pdf"><button type="submit" class="btn btn-primary" id="btnCv"><span class="i-main">' + ic('upload') + '</span><span class="i-busy">' + ic('loader') + '</span>' + (r.cv_file_id ? 'Remplacer le CV' : 'Déposer le CV') + '</button></form></div>';
-    h += '<div class="sec"><details class="toggle"><summary>Contenu du CV généré</summary><div class="tbody md">' + md(r.contenu_cv) + '</div></details></div>';
-    h += '<div class="sec"><h3>Prompt Claude Design</h3><pre class="code"><span class="code-l">Prompt</span><button type="button" class="btn btn-sm" data-copy-prompt' + (r.prompt_claude_design ? '' : ' disabled') + '>' + ic('copy') + 'Copier</button>' + (r.prompt_claude_design ? esc(r.prompt_claude_design) : '<span class="meta">Aucun prompt généré.</span>') + '</pre></div>';
     return h;
   }
   // suivi
