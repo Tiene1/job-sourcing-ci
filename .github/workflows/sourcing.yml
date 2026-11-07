@@ -1,8 +1,8 @@
 name: Pipeline - Sourcing + Génération
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"     # toutes les 6 h, minute décalée
+  # Plus de cron ici : la fréquence est pilotée depuis le tableau de bord
+  # (Apps Script → scheduleSourcing → workflow_dispatch, paramètre frequence_recherche_h).
   workflow_dispatch:
   push:
     branches: [main]
