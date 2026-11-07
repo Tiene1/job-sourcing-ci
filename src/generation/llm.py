@@ -57,15 +57,18 @@ def generate_json(prompt: str, gemini_models: list[str], groq_model: str, groq_p
     if not attempts:
         raise LLMError("Aucune clé IA : ajoute le secret GEMINI_API_KEY (et GROQ_API_KEY en secours)")
     for provider, model in attempts:
-        for retry in range(2):
+        waits = [20, 45]                       # surcharge (503) ou quota minute (429) : on patiente
+        while True:
             try:
                 raw = _gemini(prompt, model, gkey) if provider == "gemini" else _groq(groq_prompt or prompt, model, qkey)
                 return json.loads(raw.strip().removeprefix("```json").removesuffix("```"), strict=False), f"{provider}:{model}"
             except (LLMError, json.JSONDecodeError, KeyError, httpx.HTTPError) as exc:
-                errors.append(str(exc)[:160])
-                print(f"    [ia] {provider}:{model} a échoué → {type(exc).__name__}: {str(exc)[:300]}")
-                if "429" in str(exc) and retry == 0:
-                    time.sleep(30)  # quota minute dépassé : on attend une fois
+                msg = str(exc)
+                errors.append(msg[:160])
+                print(f"    [ia] {provider}:{model} a échoué → {type(exc).__name__}: {msg[:200]}")
+                transient = any(code in msg for code in ("HTTP 503", "HTTP 429", "HTTP 500")) or isinstance(exc, httpx.TimeoutException)
+                if transient and waits:
+                    time.sleep(waits.pop(0))
                     continue
                 break
     raise LLMError(" | ".join(errors))
