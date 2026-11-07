@@ -63,6 +63,7 @@ def generate_json(prompt: str, gemini_models: list[str], groq_model: str, groq_p
                 return json.loads(raw.strip().removeprefix("```json").removesuffix("```"), strict=False), f"{provider}:{model}"
             except (LLMError, json.JSONDecodeError, KeyError, httpx.HTTPError) as exc:
                 errors.append(str(exc)[:160])
+                print(f"    [ia] {provider}:{model} a échoué → {type(exc).__name__}: {str(exc)[:300]}")
                 if "429" in str(exc) and retry == 0:
                     time.sleep(30)  # quota minute dépassé : on attend une fois
                     continue

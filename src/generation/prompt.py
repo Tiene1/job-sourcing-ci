@@ -1,6 +1,6 @@
 """Prompt de génération : une offre + la base profil → contenu CV, prompt Claude Design, lettre."""
 
-PROMPT_VERSION = "v5"
+PROMPT_VERSION = "v5.1"
 
 PROMPT = """Tu es un conseiller en recrutement spécialisé dans l'industrie (instrumentation, automatisme,
 maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Cédric.
