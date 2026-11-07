@@ -36,7 +36,7 @@ Texte de l'offre :
   "points_forts": ["3 à 5 correspondances concrètes profil ↔ offre"],
   "ecarts": ["exigences non couvertes par le profil"],
   "contenu_cv": "Contenu complet du CV adapté, en Markdown : En-tête (nom, titre ciblé sur le poste, contacts tels que dans la base) ; Profil (3 lignes) ; Compétences clés (ordonnées selon l'offre) ; Expériences (rôles réels, puces orientées résultats, vocabulaire de l'offre) ; Formation ; Certifications ; Langues. Doit tenir sur UNE page A4.",
-  "objet_mail": "Exactement au format : Candidature – <intitulé exact du poste> – <référence de l'offre si présente> – Yoma Paul Cédric TIENE (sans le mot 'Objet', sans majuscules intégrales)",
+  "objet_mail": "Si l'offre IMPOSE un objet (ex. « Objet de candidature : RECRUTEMENT … » ou « mentionner la référence … en objet »), reprends-le EXACTEMENT. Sinon : Candidature – <intitulé exact du poste> – <référence de l'offre si présente> – Yoma Paul Cédric TIENE",
   "lettre": "Corps du mail = lettre de motivation (180 à 260 mots) : formule d'appel, accroche liée à l'entreprise/au poste, 2 paragraphes de preuves tirées de la base, disponibilité, mention du CV en pièce jointe, formule de politesse, signature avec nom et téléphone tels que dans la base."
 }}
 "adequation" est un entier de 0 à 100 (honnête : correspondance réelle entre l'offre et le profil).

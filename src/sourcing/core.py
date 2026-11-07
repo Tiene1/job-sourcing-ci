@@ -134,6 +134,39 @@ def valid_recruiter_email(e: str) -> bool:
     return not any(d in e.split("@")[1] for d in SITE_DOMAINS) and not any(b in e for b in BAD_LOCAL)
 
 
+def _cf_decode(hexstr: str) -> str:
+    """Décode une adresse protégée par Cloudflare (data-cfemail / /cdn-cgi/l/email-protection#...)."""
+    try:
+        key = int(hexstr[:2], 16)
+        return "".join(chr(int(hexstr[i:i + 2], 16) ^ key) for i in range(2, len(hexstr), 2))
+    except ValueError:
+        return ""
+
+
+def emails_from_html(html: str) -> list[str]:
+    """Toutes les adresses candidates d'une page, dans l'ordre : mailto, Cloudflare, texte."""
+    found: list[str] = []
+    for m in re.findall(r"mailto:([^\"'?>\s]+)", html or "", re.I):
+        found.append(m)
+    for h in re.findall(r'data-cfemail="([0-9a-fA-F]+)"', html or ""):
+        found.append(_cf_decode(h))
+    for h in re.findall(r'/cdn-cgi/l/email-protection#([0-9a-fA-F]+)', html or ""):
+        d = _cf_decode(h)
+        if "?" not in d:          # les liens « partager par email » contiennent ?subject=
+            found.append(d)
+    text = re.sub(r"\s*[\[(]\s*(?:at|arobase)\s*[\])]\s*", "@", html or "", flags=re.I)
+    found += EMAIL_RE.findall(text)
+    return found
+
+
+def extract_email_html(html: str) -> str:
+    for e in emails_from_html(html):
+        e = e.strip().strip(".")
+        if valid_recruiter_email(e):
+            return e
+    return ""
+
+
 def extract_email(text: str) -> str:
     for m in EMAIL_RE.findall(text or ""):
         if valid_recruiter_email(m):

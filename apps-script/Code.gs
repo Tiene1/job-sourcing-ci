@@ -19,6 +19,7 @@ const EDITABLE = ['entreprise','email_contact','objet_mail','lettre','notes','da
 const DEFAULT_PARAMS = [
   ['mode_test', 'TRUE', 'TRUE = tous les envois partent vers email_test'],
   ['email_test', '', 'Adresse de test (vide = ton adresse)'],
+  ['envoi_auto_apres_cv', 'TRUE', 'TRUE = CV déposé + email renseigné → envoi automatique'],
   ['plafond_jour', '15', "Nombre maximum d'envois réels par jour"],
   ['nom_expediteur', 'Paul Cédric TIENE YOMA', 'Nom affiché chez le recruteur'],
   ['nom_fichier_cv', 'CV_Cedric_TIENE.pdf', 'Nom de la pièce jointe'],

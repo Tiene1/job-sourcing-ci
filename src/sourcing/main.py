@@ -70,7 +70,7 @@ def run(cfg_path: Path, out: Path) -> None:
                 detail(http, o)   # le score initial (titre + carte) est conservé
             except Exception as exc:
                 errors.append(f"détail {o.url}: {type(exc).__name__}"[:200])
-        o.email_contact = extract_email(o.description)
+        o.email_contact = o.email_contact or extract_email(o.description)
         if o.cle_doublon in seen_keys:
             continue
         seen_keys.add(o.cle_doublon)

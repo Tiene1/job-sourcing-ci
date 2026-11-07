@@ -17,7 +17,7 @@ from ..common.store import Store, enabled, now
 from .llm import LLMError, generate_json
 from .profile import load_profile
 from .prompt import build_design_prompt, build_prompt
-from ..sourcing.core import valid_recruiter_email
+from ..sourcing.core import Http, extract_email_html, valid_recruiter_email
 
 
 def run(cfg_path: Path) -> None:
@@ -31,6 +31,7 @@ def run(cfg_path: Path) -> None:
     maxi = int(params.get("max_generations_par_run", cfg["max_par_run"]))
 
     _cleanup(store)
+    _backfill_emails(store)
     todo = [r for r in store.records()
             if r.get("statut") == "Nouveau" and _int(r.get("score")) >= seuil]
     todo.sort(key=lambda r: -_int(r.get("score")))
@@ -99,6 +100,31 @@ def _cleanup(store: Store) -> None:
     if fixed:
         print(f"[génération] {fixed} ligne(s) corrigée(s) (emails de sites / prompts Claude Design)")
         store.log("generation", f"Nettoyage : {fixed} ligne(s) corrigée(s)")
+
+
+def _backfill_emails(store: Store, limit: int = 25) -> None:
+    """Relit la page des offres encore sans email (mailto, Cloudflare, texte) — sans IA."""
+    http, found, checked = Http(delay=2), 0, 0
+    for r in store.records():
+        if checked >= limit:
+            break
+        if r.get("email_contact") or r.get("statut") not in ("Nouveau", "À préparer") or not r.get("url"):
+            continue
+        if "email non trouvé" in (r.get("notes") or ""):
+            continue                       # déjà vérifiée : on ne refait pas la requête
+        checked += 1
+        try:
+            email = extract_email_html(http.get(r["url"]))
+        except Exception:
+            continue
+        if email:
+            store.update(r["_row"], {"email_contact": email})
+            found += 1
+        else:
+            store.update(r["_row"], {"notes": ((r.get("notes") or "") + " | email non trouvé sur la page de l'offre").strip(" |")})
+    if checked:
+        print(f"[génération] emails : {found} trouvé(s) sur {checked} offre(s) relue(s)")
+        store.log("generation", f"Recherche d'emails : {found}/{checked} trouvé(s)")
 
 
 def _notes(data: dict, model: str) -> str:

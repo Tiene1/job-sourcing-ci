@@ -579,6 +579,7 @@ const GROUPS = [
 const PARAM_SECTIONS = [
   { title: 'Envoi des candidatures', fields: [
     { k: 'mode_test', label: 'Mode test', type: 'bool', help: 'Activé : tous les envois partent vers l’adresse de test, jamais aux recruteurs.' },
+    { k: 'envoi_auto_apres_cv', label: 'Envoi automatique après dépôt du CV', type: 'bool', help: 'Activé : dès que le CV est déposé et l’email du recruteur renseigné, la candidature passe « À envoyer » (sans cliquer « Valider l’envoi »).' },
     { k: 'email_test', label: 'Adresse de test', type: 'email' },
     { k: 'plafond_jour', label: 'Plafond d’envois par jour', type: 'number', min: 0, max: 200 },
     { k: 'nom_expediteur', label: 'Nom de l’expéditeur', type: 'text' },
@@ -1151,11 +1152,17 @@ function drawerBody(r) {
   }
   if (t === 'candidature') {
     const cvUrl = state.cvUrls[r.id];
-    let h = '<div class="sec"><h3>① Créer le CV avec Claude Design</h3><p class="meta" style="margin:0 0 10px">Le prompt ci-dessous contient déjà tout le texte du CV (après la ligne « === CONTENU DU CV === »). Copiez-le, collez-le dans Claude Design, exportez le PDF puis déposez-le plus bas (③).</p><pre class="code" style="max-height:420px;overflow:auto"><span class="code-l">Prompt</span><button type="button" class="btn btn-sm" data-copy-prompt' + (r.prompt_claude_design ? '' : ' disabled') + '>' + ic('copy') + 'Copier le prompt</button>' + (r.prompt_claude_design ? esc(r.prompt_claude_design) : '<span class="meta">Aucun prompt généré.</span>') + '</pre><p style="margin:8px 0 0"><a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Ouvrir Claude ↗</a></p></div>';
-    h += '<div class="sec"><details class="toggle" open><summary>Aperçu du contenu du CV</summary><div class="tbody md">' + md(r.contenu_cv) + '</div></details></div>';
-    h += '<div class="sec"><h3>Destinataire</h3><div class="form-grid">' +
-      fieldInput('entreprise', 'Entreprise', 'text') + fieldInput('email_contact', 'Email de contact', 'email') +
+    const noMail = !isEmail(state.draft.email_contact);
+    const dest = '<div class="sec"><h3>Destinataire</h3>' +
+      (noMail ? '<div class="callout" style="background:var(--b-orange,#fbecdd);margin-bottom:12px"><span class="ce">✉️</span><div class="cb"><div class="ct">Aucun email de candidature trouvé automatiquement</div><div class="cd">Ouvrez <a href="' + esc(safeUrl(r.url) || '#') + '" target="_blank" rel="noopener noreferrer">l’offre ↗</a>, copiez l’adresse indiquée pour postuler et collez-la dans « Email de contact », puis Enregistrer. Si l’offre se postule uniquement sur un site, cliquez « Manuelle ».</div></div></div>' : '') +
+      '<div class="form-grid">' +
+      fieldInput('email_contact', 'Email de contact', 'email') + fieldInput('entreprise', 'Entreprise', 'text') +
       fieldInput('lieu', 'Lieu', 'text') + fieldInput('contrat', 'Contrat', 'text') + '</div></div>';
+    let h = noMail ? dest : '';
+    h += '<div class="sec"><h3>① Créer le CV avec Claude Design</h3><p class="meta" style="margin:0 0 10px">Le prompt ci-dessous contient déjà tout le texte du CV (après la ligne « === CONTENU DU CV === »). Copiez-le, collez-le dans Claude Design, exportez le PDF puis déposez-le plus bas (③).</p><pre class="code" style="max-height:420px;overflow:auto"><span class="code-l">Prompt</span><button type="button" class="btn btn-sm" data-copy-prompt' + (r.prompt_claude_design ? '' : ' disabled') + '>' + ic('copy') + 'Copier le prompt</button>' + (r.prompt_claude_design ? esc(r.prompt_claude_design) : '<span class="meta">Aucun prompt généré.</span>') + '</pre><p style="margin:8px 0 0"><a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Ouvrir Claude ↗</a></p></div>';
+    h += '<div class="sec"><details class="toggle" open><summary>Aperçu du contenu du CV</summary><div class="tbody md">' + md(r.contenu_cv) + '</div></details></div>';
+
+    if (!noMail) h += dest;
     h += '<div class="sec"><h3>② Relire l’email de candidature</h3><div class="form-grid">' + fieldInput('objet_mail', 'Objet du mail', 'text', 'span2') + fieldInput('lettre', 'Lettre / corps du mail', 'textarea', 'span2') + '</div></div>';
     h += '<div class="sec"><h3>③ Déposer le CV (PDF)</h3><div class="cv-state">' +
       (r.cv_file_id ? '<span class="tag t-green">✓ CV déposé</span>' + (cvUrl ? '<a href="' + esc(cvUrl) + '" target="_blank" rel="noopener noreferrer">Ouvrir le PDF ↗</a>' : '<span class="meta">' + esc(r.cv_file_id) + '</span>')
@@ -1231,6 +1238,24 @@ function closeDrawer(force) {
   renderDrawer();
   if (state.lastFocus && document.contains(state.lastFocus)) state.lastFocus.focus();
 }
+
+// ---- Envoi automatique (ajout intégration) : CV déposé + email valide + lettre → « À envoyer »
+function isEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim()); }
+function autoSendOn() { return String(state.params.envoi_auto_apres_cv == null ? 'TRUE' : state.params.envoi_auto_apres_cv).toUpperCase() === 'TRUE'; }
+async function maybeAutoSend() {
+  const r = state.current, d = state.draft;
+  if (!r || !d || !autoSendOn()) return false;
+  if (!['Nouveau', 'À préparer', 'Erreur envoi'].includes(r.statut)) return false;
+  if (!r.cv_file_id) return false;
+  if (!isEmail(d.email_contact)) { toast('CV déposé. Ajoutez l’email du recruteur (Destinataire) puis Enregistrer : l’envoi partira automatiquement.', 'ok'); return false; }
+  if (!String(d.objet_mail || '').trim() || String(d.lettre || '').trim().length < 100) { toast('CV déposé, mais l’objet ou la lettre est vide : complétez puis cliquez « Valider l’envoi ».', 'err'); return false; }
+  d.statut = 'À envoyer';
+  updateDirty();
+  await saveDetail();
+  const test = String(state.params.mode_test).toUpperCase() === 'TRUE';
+  toast('Envoi programmé (≤ 10 min) vers ' + (test ? 'l’adresse de TEST' : d.email_contact) + '. Pour annuler : remettez le statut « À préparer » avant l’envoi.', 'ok');
+  return true;
+}
 async function uploadCv(e) {
   e.preventDefault();
   const r = state.current, file = $('#cvFile').files[0];
@@ -1245,6 +1270,7 @@ async function uploadCv(e) {
       if (res && safeUrl(res.url)) state.cvUrls[r.id] = safeUrl(res.url);
       toast('CV déposé pour ' + (r.entreprise || r.id) + '.', 'ok');
       renderDrawer();
+      await maybeAutoSend();
     } catch (err) { if (err && /lecture/.test(err.message)) toast(err.message, 'err'); }
   });
 }
@@ -1481,7 +1507,7 @@ document.addEventListener('click', e => {
   if (t.hasAttribute('data-reset-params')) { renderParams(); toast('Changements annulés.'); return; }
   if (t.hasAttribute('data-reload-profil')) { state.profil = null; renderProfil(); return; }
   if (t.hasAttribute('data-reload-journal')) { state.journal = null; renderJournal(); return; }
-  if (t.id === 'btnSave') { saveDetail(); return; }
+  if (t.id === 'btnSave') { saveDetail().then(() => maybeAutoSend()); return; }
   if (t.hasAttribute('data-quick')) { quickStatus(t.getAttribute('data-quick')); return; }
   if (t.id === 'btnSend') { runSend(); return; }
   if (t.id === 'btnReplies') { runReplies(); return; }
@@ -1601,7 +1627,7 @@ const Mock = (() => {
     if (statut === 'Ignorée') r.notes = 'Poste basé hors zone, non pertinent.';
     return r;
   });
-  const params = { mode_test: 'TRUE', email_test: 'test@exemple.com', plafond_jour: '10', nom_expediteur: 'Cédric Tiene', nom_fichier_cv: 'CV_Cedric_Tiene.pdf', heures_recap: '8,18', relance_jours: '7', sans_reponse_jours: '21', seuil_generation: '60', max_generations_par_run: '5', dossier_cv_id: '1aBcDeFgHiJkLmNoPqRsTuVwXyZ012345', dossier_profil_id: '1ZyXwVuTsRqPoNmLkJiHgFeDcBa987654', dossier_lm_id: '1Q2w3E4r5T6y7U8i9O0pAsDfGhJkLzXcV' };
+  const params = { mode_test: 'TRUE', envoi_auto_apres_cv: 'TRUE', email_test: 'test@exemple.com', plafond_jour: '10', nom_expediteur: 'Cédric Tiene', nom_fichier_cv: 'CV_Cedric_Tiene.pdf', heures_recap: '8,18', relance_jours: '7', sans_reponse_jours: '21', seuil_generation: '60', max_generations_par_run: '5', dossier_cv_id: '1aBcDeFgHiJkLmNoPqRsTuVwXyZ012345', dossier_profil_id: '1ZyXwVuTsRqPoNmLkJiHgFeDcBa987654', dossier_lm_id: '1Q2w3E4r5T6y7U8i9O0pAsDfGhJkLzXcV' };
   const profil = [
     { cat: 'CV', name: 'CV_Cedric_Tiene_Instrumentation.pdf', url: 'https://example.com/cv1', date: stamp(ago(17, 10, 12)), size: 188416 },
     { cat: 'CV', name: 'CV_Cedric_Tiene_Automatisme.pdf', url: 'https://example.com/cv2', date: stamp(ago(30, 16, 40)), size: 172032 },
@@ -1725,7 +1751,7 @@ function propsHtml(r) {
     ['◉', 'Statut', badge(d.statut)],
     ['#', 'Adéquation', isNaN(a) ? empty : '<span class="adq">' + Math.round(a) + ' %</span><span class="meta"> · score ' + esc(r.score || '—') + '</span>'],
     ['📅', 'Date limite', r.date_limite ? dlCell(r) + ' <span class="meta">(' + esc(rel(r.date_limite)) + ')</span>' : empty],
-    ['@', 'Email', d.email_contact ? esc(d.email_contact) : '<span style="color:var(--c-orange)">Aucun — candidature manuelle</span>'],
+    ['@', 'Email', d.email_contact ? esc(d.email_contact) : '<span style="color:var(--c-orange)">Aucun — à ajouter (onglet Candidature) ou candidature manuelle</span>'],
     ['🔗', 'Lien de l’offre', u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(u.replace(/^https?:\/\//, '').slice(0, 60)) + ' ↗</a>' : empty]
   ];
   return '<div class="props">' + P.map(p => '<div class="prop"><span class="prop-k"><span class="pi" aria-hidden="true">' + p[0] + '</span>' + p[1] + '</span><span class="prop-v">' + p[2] + '</span></div>').join('') + '</div>';

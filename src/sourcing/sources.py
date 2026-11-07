@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import feedparser
 from bs4 import BeautifulSoup
 
-from .core import Http, Offre, card_of, clean
+from .core import Http, Offre, card_of, clean, extract_email_html
 
 DATE_RE = re.compile(r"\d{2}/\d{2}/\d{4}")
 
@@ -46,7 +46,9 @@ def jobivoire(http: Http, cfg: dict) -> list[Offre]:
 
 
 def jobivoire_detail(http: Http, o: Offre) -> None:
-    soup = http.soup(o.url)
+    html = http.get(o.url)
+    o.email_contact = o.email_contact or extract_email_html(html)
+    soup = BeautifulSoup(html, "html.parser")
     h1 = soup.find("h1")
     if h1:
         o.titre = clean(h1.get_text(" ")) or o.titre
@@ -79,7 +81,9 @@ def educarriere(http: Http, cfg: dict) -> list[Offre]:
 
 
 def generic_detail(http: Http, o: Offre) -> None:
-    soup = http.soup(o.url)
+    html = http.get(o.url)
+    o.email_contact = o.email_contact or extract_email_html(html)
+    soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
         tag.decompose()
     o.description = trim_to_offer(clean(soup.get_text(" ")), o.titre)
