@@ -24,6 +24,7 @@ const DEFAULT_PARAMS = [
   ['nom_expediteur', 'Paul Cédric TIENE YOMA', 'Nom affiché chez le recruteur'],
   ['nom_fichier_cv', 'CV_Cedric_TIENE.pdf', 'Nom de la pièce jointe'],
   ['heures_recap', '8,18', 'Heures du récapitulatif email (heure Abidjan)'],
+  ['frequence_recherche_h', '6', 'Recherche d\'offres toutes les N heures (1 à 24, 0 = pause)'],
   ['relance_jours', '10', 'Jours sans réponse avant suggestion de relance'],
   ['sans_reponse_jours', '30', 'Jours avant passage en "Sans réponse"'],
   ['seuil_generation', '4', 'Score minimum pour la génération IA automatique'],
@@ -67,6 +68,7 @@ function setupTriggers() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('processSendQueue').timeBased().everyMinutes(10).create();
   ScriptApp.newTrigger('checkReplies').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('scheduleSourcing').timeBased().everyHours(1).create();
   String(params_().heures_recap || '8,18').split(',').map(h => parseInt(h, 10)).filter(h => h >= 0 && h < 24)
     .forEach(h => ScriptApp.newTrigger('sendDigest').timeBased().atHour(h).everyDays(1).inTimezone('Africa/Abidjan').create());
   log_('setup', 'Déclencheurs créés');
@@ -148,7 +150,40 @@ function api_journal() {
 }
 
 function api_runSendNow() { processSendQueue(); return api_getData(); }
+function api_runSourcingNow() { dispatchSourcing_('manuel'); return api_getData(); }
 function api_runRepliesNow() { checkReplies(); return api_getData(); }
+
+// ============================================================ MODULE 1 — PLANIFICATION DE LA RECHERCHE
+// Le tableau de bord pilote la fréquence : ce déclencheur horaire lance le workflow GitHub
+// quand le délai « frequence_recherche_h » est écoulé. Jeton GitHub : propriété de script GITHUB_TOKEN.
+const GITHUB_REPO = 'Tiene1/job-sourcing-ci', GITHUB_WORKFLOW = 'sourcing.yml';
+
+function scheduleSourcing() {
+  const h = Number(params_().frequence_recherche_h || 6);
+  if (!(h > 0)) return;                                   // 0 = recherche en pause
+  const props = PropertiesService.getScriptProperties();
+  const last = Number(props.getProperty('LAST_SOURCING') || 0);
+  if (Date.now() - last >= h * 3600000 - 5 * 60000) dispatchSourcing_('planifié');   // marge 5 min
+}
+
+function dispatchSourcing_(origine) {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('GITHUB_TOKEN');
+  if (!token) throw new Error('Jeton GitHub manquant : ajoutez la propriété de script GITHUB_TOKEN (Paramètres du projet Apps Script).');
+  const res = UrlFetchApp.fetch(`https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW}/dispatches`, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    payload: JSON.stringify({ ref: 'main' }),
+  });
+  if (res.getResponseCode() !== 204) {
+    log_('recherche', `❌ Lancement ${origine} refusé par GitHub (HTTP ${res.getResponseCode()}) : ${res.getContentText().slice(0, 200)}`);
+    throw new Error('GitHub a refusé le lancement (HTTP ' + res.getResponseCode() + '). Vérifiez le jeton GITHUB_TOKEN.');
+  }
+  props.setProperty('LAST_SOURCING', String(Date.now()));
+  log_('recherche', `🔎 Recherche d'offres lancée (${origine})`);
+}
+
+function testGithubToken() { dispatchSourcing_('test'); }   // à exécuter une fois depuis l'éditeur
 
 // ============================================================ MODULE 4 — ENVOI
 function processSendQueue() {

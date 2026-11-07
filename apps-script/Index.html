@@ -372,6 +372,9 @@ code{font-family:"SFMono-Regular",Menlo,Consolas,monospace;font-size:12px;backgr
       <button type="button" class="btn icon-btn" id="btnRefresh" aria-label="Actualiser les données" title="Actualiser">
         <span class="i-main" data-icon="refresh"></span><span class="i-busy" data-icon="loader"></span>
       </button>
+      <button type="button" class="btn" id="btnSourcing" aria-label="Lancer une recherche d'offres" title="Lancer une recherche d'offres maintenant">
+        <span class="i-main" data-icon="search"></span><span class="i-busy" data-icon="loader"></span><span class="lbl-d">Rechercher</span>
+      </button>
       <button type="button" class="btn" id="btnReplies" aria-label="Vérifier les réponses">
         <span class="i-main" data-icon="inbox"></span><span class="i-busy" data-icon="loader"></span><span class="lbl-d">Vérifier les réponses</span>
       </button>
@@ -530,7 +533,7 @@ const API_LABELS = {
   api_uploadCv: "l'envoi du CV", api_listProfil: 'la liste des documents',
   api_uploadProfil: "l'envoi du document", api_saveParams: "l'enregistrement des paramètres",
   api_journal: 'la lecture du journal', api_runSendNow: "le traitement de la file d'envoi",
-  api_runRepliesNow: 'la vérification des réponses'
+  api_runRepliesNow: 'la vérification des réponses', api_runSourcingNow: 'le lancement de la recherche'
 };
 const API_TIMEOUT_MS = 120000;
 
@@ -589,6 +592,9 @@ const PARAM_SECTIONS = [
     { k: 'relance_jours', label: 'Relance après (jours sans réponse)', type: 'number', min: 1, max: 90 },
     { k: 'sans_reponse_jours', label: 'Classer « Sans réponse » après (jours)', type: 'number', min: 1, max: 180 },
     { k: 'heures_recap', label: 'Heures du récapitulatif', type: 'text', help: 'Heures séparées par des virgules, ex. 8,18' }
+  ] },
+  { title: 'Recherche d’offres', fields: [
+    { k: 'frequence_recherche_h', label: 'Fréquence de recherche (heures)', type: 'number', min: 0, max: 24, help: 'Une recherche (puis la préparation IA) toutes les N heures. 6 conseillé ; 3 = plus réactif ; 0 = pause. Bouton « Rechercher » en haut pour lancer tout de suite.' }
   ] },
   { title: 'Génération par l’IA', fields: [
     { k: 'seuil_generation', label: 'Seuil d’adéquation pour générer (0–100)', type: 'number', min: 0, max: 100, help: 'Une offre sous ce seuil n’est pas préparée automatiquement.' },
@@ -1437,6 +1443,13 @@ async function runSend() {
     } catch (_) {}
   });
 }
+async function runSourcing() {
+  const ok = await confirmBox('Lancer une recherche d’offres ?', 'Le pipeline va chercher de nouvelles offres puis préparer les candidatures avec l’IA. Comptez 5 à 25 minutes ; actualisez ensuite le tableau de bord.', 'Lancer la recherche', false);
+  if (!ok) return;
+  await withBusy($('#btnSourcing'), async () => {
+    try { setData(await call('api_runSourcingNow')); toast('Recherche lancée : les nouvelles offres apparaîtront d’ici 5 à 25 min.', 'ok'); } catch (_) {}
+  });
+}
 async function runReplies() {
   const before = state.rows.filter(r => RESPONDED.includes(r.statut)).length;
   await withBusy($('#btnReplies'), async () => {
@@ -1516,6 +1529,7 @@ document.addEventListener('click', e => {
   if (t.hasAttribute('data-quick')) { quickStatus(t.getAttribute('data-quick')); return; }
   if (t.id === 'btnSend') { runSend(); return; }
   if (t.id === 'btnReplies') { runReplies(); return; }
+  if (t.id === 'btnSourcing') { runSourcing(); return; }
   if (t.id === 'btnRefresh') { state.profil = state.view === 'profil' ? state.profil : null; state.journal = null; reload(t); return; }
   if (t.id === 'btnRetry') { const g = $('#globalState'); g.className = 'state'; g.innerHTML = '<span class="spinner">' + ic('loader') + '</span><div>Chargement des données…</div>'; reload(); return; }
   if (t.id === 'btnProfilReload') { loadProfil(t); return; }
@@ -1676,6 +1690,7 @@ const Mock = (() => {
       });
       return data();
     },
+    api_runSourcingNow: () => data(),
     api_runRepliesNow: () => {
       const r = rows.filter(x => x.statut === 'Envoyé').sort((a, b) => parseDate(a.date_envoi) - parseDate(b.date_envoi))[0];
       if (r) { r.statut = 'Réponse reçue'; r.date_reponse = stamp(new Date()); journal.unshift([r.date_reponse, 'RÉPONSE', 'Réponse reçue de ' + r.entreprise]); }
