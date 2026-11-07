@@ -107,8 +107,8 @@ def _cleanup(store: Store) -> None:
         fields = {}
         if r.get("email_contact") and not valid_recruiter_email(r["email_contact"]):
             fields["email_contact"] = ""
-        if r.get("contenu_cv") and "=== CONTENU DU CV ===" not in r.get("prompt_claude_design", ""):
-            fields["prompt_claude_design"] = build_design_prompt(r["contenu_cv"])
+        if r.get("contenu_cv") and r.get("prompt_claude_design", "") != build_design_prompt(r["contenu_cv"]):
+            fields["prompt_claude_design"] = build_design_prompt(r["contenu_cv"])   # gabarit à jour
         if fields and r.get("statut") in ("Nouveau", "À préparer", "Erreur envoi", "Test envoyé"):
             store.update(r["_row"], fields)
             fixed += 1

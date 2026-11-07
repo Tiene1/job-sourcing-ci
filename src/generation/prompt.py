@@ -109,12 +109,28 @@ def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:
     )
 
 
-DESIGN_PROMPT = """Crée mon CV en respectant STRICTEMENT ces consignes :
-- Format A4, UNE seule page, UNE seule colonne, style sobre et professionnel, identique à mes CV précédents.
-- Hiérarchie claire : nom en en-tête, titre du poste visé, coordonnées, puis sections avec titres distincts.
-- Police lisible, marges équilibrées, aucune photo, aucune icône décorative superflue.
+DESIGN_PROMPT = """Crée mon CV en reproduisant EXACTEMENT la mise en page de mon CV de référence
+(joint à cette conversation : « CV Technicien Automatisme & Instrumentation TIA Portal »).
+
+MISE EN PAGE (identique au modèle)
+- Format A4, UNE seule page, prêt à exporter en PDF.
+- En-tête pleine largeur : ma photo à gauche (celle du CV de référence), à droite mon nom en grand
+  et gras, le titre du poste en bleu foncé, puis le paragraphe de profil.
+- Bandeau sous l'en-tête : email · téléphone · ville, avec petites icônes, séparé par un filet bleu foncé.
+- DEUX COLONNES sous l'en-tête :
+  · colonne de GAUCHE (≈ 38 %, fond bleu très clair) : COMPÉTENCES (par familles, sous-titres en gras
+    et puces), ATOUTS, LOGICIELS & OUTILS, LANGUES, CENTRES D'INTÉRÊT ;
+  · colonne de DROITE (≈ 62 %, fond blanc) : EXPÉRIENCES PROFESSIONNELLES, RÉALISATIONS (si présente),
+    DIPLÔMES & FORMATIONS.
+- Expériences et diplômes sous forme de frise verticale (pastille + trait bleu) : intitulé en gras,
+  dates alignées à droite, entreprise et lieu en italique gris, puces avec libellé en gras « Libellé : ».
+- Titres de section en majuscules, bleu foncé, soulignés d'un filet fin.
+- Police sans empattement lisible (type Lato / Calibri), couleurs : bleu foncé #1F3A5F, gris, blanc.
+- Si le contenu déborde, réduis légèrement la taille de police et les espacements : jamais 2 pages.
+
+CONTENU
 - Reprends le contenu ci-dessous INTÉGRALEMENT et MOT POUR MOT : n'ajoute, ne retire et n'invente rien.
-- Livre le résultat prêt à exporter en PDF.
+- Répartis les sections dans les colonnes comme indiqué ci-dessus.
 
 === CONTENU DU CV ===
 {contenu}
