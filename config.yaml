@@ -62,7 +62,7 @@ generation:
   seuil: 4                      # score minimum pour générer automatiquement
   max_par_run: 12               # candidatures préparées par run (quota IA gratuit)
   pause_s: 5
-  gemini_models: ["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest"]
+  gemini_models: ["gemini-flash-latest", "gemini-flash-lite-latest"]   # 2.5-flash : fermé aux nouveaux comptes
   groq_model: "openai/gpt-oss-120b"
   dossier_cv: "1tnZHfVizLl4hNa7MS7jeRZJZJmf5IgCO"   # Drive : Pipeline Emploi/Base_Profil/CV
   dossier_lm: "1zqFB3JenZ4WonfF5eWY-KyHGBHaj8fm9"   # Drive : Pipeline Emploi/Base_Profil/LM

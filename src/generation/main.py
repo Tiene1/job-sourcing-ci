@@ -16,7 +16,8 @@ import yaml
 from ..common.store import Store, enabled, now
 from .llm import LLMError, generate_json
 from .profile import load_profile
-from .prompt import build_prompt
+from .prompt import build_design_prompt, build_prompt
+from ..sourcing.core import valid_recruiter_email
 
 
 def run(cfg_path: Path) -> None:
@@ -29,6 +30,7 @@ def run(cfg_path: Path) -> None:
     seuil = int(params.get("seuil_generation", cfg["seuil"]))
     maxi = int(params.get("max_generations_par_run", cfg["max_par_run"]))
 
+    _cleanup(store)
     todo = [r for r in store.records()
             if r.get("statut") == "Nouveau" and _int(r.get("score")) >= seuil]
     todo.sort(key=lambda r: -_int(r.get("score")))
@@ -49,7 +51,8 @@ def run(cfg_path: Path) -> None:
     ok = ko = 0
     for r in todo[:maxi]:
         try:
-            data, model = generate_json(build_prompt(r, profile), cfg["gemini_models"], cfg["groq_model"])
+            data, model = generate_json(build_prompt(r, profile), cfg["gemini_models"], cfg["groq_model"],
+                                        groq_prompt=build_prompt(r, profile, max_chars=9000))
         except LLMError as exc:
             ko += 1
             store.update(r["_row"], {"erreur": f"Génération : {exc}"[:500]})
@@ -58,7 +61,7 @@ def run(cfg_path: Path) -> None:
             "adequation": data.get("adequation", ""),
             "points_forts": " • ".join(data.get("points_forts", [])),
             "contenu_cv": data.get("contenu_cv", ""),
-            "prompt_claude_design": data.get("prompt_claude_design", ""),
+            "prompt_claude_design": build_design_prompt(data.get("contenu_cv", "")),
             "objet_mail": data.get("objet_mail", ""),
             "lettre": data.get("lettre", ""),
             "date_preparation": now(),
@@ -66,9 +69,12 @@ def run(cfg_path: Path) -> None:
             "statut": "À préparer",
             "notes": _notes(data, model),
         }
-        for k in ("entreprise", "email_contact", "lieu", "contrat"):   # complète sans écraser
+        for k in ("entreprise", "lieu", "contrat"):   # complète sans écraser
             if data.get(k) and not r.get(k):
                 fields[k] = data[k]
+        email = (data.get("email_contact") or "").strip()
+        if not valid_recruiter_email(r.get("email_contact", "")):
+            fields["email_contact"] = email if valid_recruiter_email(email) else ""
         store.update(r["_row"], fields)
         ok += 1
         time.sleep(cfg.get("pause_s", 5))   # respect du quota par minute
@@ -76,6 +82,23 @@ def run(cfg_path: Path) -> None:
     msg = f"{ok} candidature(s) préparée(s), {ko} échec(s), {max(0, len(todo) - maxi)} en file pour le prochain run"
     print(f"[génération] {msg}")
     store.log("generation", msg)
+
+
+def _cleanup(store: Store) -> None:
+    """Corrige les lignes déjà en base : emails de sites ou invalides, prompts sans contenu."""
+    fixed = 0
+    for r in store.records():
+        fields = {}
+        if r.get("email_contact") and not valid_recruiter_email(r["email_contact"]):
+            fields["email_contact"] = ""
+        if r.get("contenu_cv") and "=== CONTENU DU CV ===" not in r.get("prompt_claude_design", ""):
+            fields["prompt_claude_design"] = build_design_prompt(r["contenu_cv"])
+        if fields and r.get("statut") in ("Nouveau", "À préparer", "Erreur envoi", "Test envoyé"):
+            store.update(r["_row"], fields)
+            fixed += 1
+    if fixed:
+        print(f"[génération] {fixed} ligne(s) corrigée(s) (emails de sites / prompts Claude Design)")
+        store.log("generation", f"Nettoyage : {fixed} ligne(s) corrigée(s)")
 
 
 def _notes(data: dict, model: str) -> str:

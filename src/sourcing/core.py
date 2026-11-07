@@ -119,9 +119,23 @@ def score(offre: Offre, cfg: dict) -> Offre:
     return offre
 
 
+# Domaines des sites d'emploi / plateformes : leurs emails ne sont JAMAIS ceux du recruteur
+SITE_DOMAINS = ("educarriere", "jobivoire", "novojob", "emploi.ci", "linkedin", "indeed",
+                "example", "sentry", "wixpress", "google.com", "gstatic", "w3.org", "schema.org")
+BAD_LOCAL = ("noreply", "no-reply", "donotreply", "plainte", "webmaster", "support@", "contact@educarriere")
+
+
+def valid_recruiter_email(e: str) -> bool:
+    e = (e or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", e):
+        return False
+    if e.endswith((".png", ".jpg", ".gif", ".webp")):
+        return False
+    return not any(d in e.split("@")[1] for d in SITE_DOMAINS) and not any(b in e for b in BAD_LOCAL)
+
+
 def extract_email(text: str) -> str:
-    bad = ("example", "sentry", "wixpress", ".png", ".jpg", "noreply", "no-reply")
     for m in EMAIL_RE.findall(text or ""):
-        if not any(b in m.lower() for b in bad):
+        if valid_recruiter_email(m):
             return m
     return ""

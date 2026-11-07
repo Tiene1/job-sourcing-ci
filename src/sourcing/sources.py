@@ -16,6 +16,17 @@ from .core import Http, Offre, card_of, clean
 DATE_RE = re.compile(r"\d{2}/\d{2}/\d{4}")
 
 
+def trim_to_offer(text: str, titre: str, size: int = 5000) -> str:
+    """Coupe le menu du site : garde le texte à partir de la DERNIÈRE mention du titre
+    dans le premier tiers de la page (le titre apparaît d'abord dans le fil d'Ariane)."""
+    low, t = text.lower(), (titre or "").lower().strip()
+    pos = -1
+    if t:
+        head = low[: max(len(low) // 3, 2000)]
+        pos = head.rfind(t)
+    return (text[pos:] if pos > 0 else text)[:size]
+
+
 # ------------------------------------------------------------ Jobivoire.ci
 def jobivoire(http: Http, cfg: dict) -> list[Offre]:
     out: dict[str, Offre] = {}
@@ -39,8 +50,11 @@ def jobivoire_detail(http: Http, o: Offre) -> None:
     h1 = soup.find("h1")
     if h1:
         o.titre = clean(h1.get_text(" ")) or o.titre
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
+        tag.decompose()
     main = soup.find("main") or soup.body
-    o.description = clean(main.get_text(" "))[:5000] if main else o.description
+    if main:
+        o.description = trim_to_offer(clean(main.get_text(" ")), o.titre)
 
 
 # ------------------------------------------------------------ Educarriere.ci
@@ -66,9 +80,9 @@ def educarriere(http: Http, cfg: dict) -> list[Offre]:
 
 def generic_detail(http: Http, o: Offre) -> None:
     soup = http.soup(o.url)
-    for tag in soup(["script", "style", "nav", "footer", "header"]):
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
         tag.decompose()
-    o.description = clean(soup.get_text(" "))[:5000]
+    o.description = trim_to_offer(clean(soup.get_text(" ")), o.titre)
 
 
 # ------------------------------------------------------------ Novojob (RSS)
