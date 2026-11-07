@@ -15,8 +15,8 @@ import yaml
 
 from ..common.store import Store, enabled, now
 from .llm import LLMError, generate_json
-from .profile import load_profile
-from .prompt import build_design_prompt, build_prompt
+from .profile import load_portfolio, load_profile
+from .prompt import PROMPT_VERSION, build_design_prompt, build_prompt
 from ..sourcing.core import Http, extract_email_html, valid_recruiter_email
 
 
@@ -32,8 +32,11 @@ def run(cfg_path: Path) -> None:
 
     _cleanup(store)
     _backfill_emails(store)
+    def outdated(r):   # brouillon « À préparer » sans CV déposé, généré avec un ancien prompt
+        return (r.get("statut") == "À préparer" and not r.get("cv_file_id")
+                and f"Prompt {PROMPT_VERSION}" not in (r.get("notes") or ""))
     todo = [r for r in store.records()
-            if r.get("statut") == "Nouveau" and _int(r.get("score")) >= seuil]
+            if (r.get("statut") == "Nouveau" and _int(r.get("score")) >= seuil) or outdated(r)]
     todo.sort(key=lambda r: -_int(r.get("score")))
     if not todo:
         print("[génération] rien à préparer")
@@ -43,6 +46,11 @@ def run(cfg_path: Path) -> None:
         "CV": params.get("dossier_cv", cfg["dossier_cv"]),
         "LM": params.get("dossier_lm", cfg["dossier_lm"]),
     })
+    purl = params.get("portfolio_url", cfg.get("portfolio_url", ""))
+    try:
+        profile["PORTFOLIO"], profile["PORTFOLIO_URL"] = load_portfolio(store, purl), purl
+    except Exception as exc:
+        print(f"  [profil] portfolio indisponible : {exc}")
     if not profile.get("CV"):
         msg = "Base_Profil/CV est vide : dépose au moins un CV pour activer la génération"
         print(f"[génération] {msg}")
@@ -50,7 +58,11 @@ def run(cfg_path: Path) -> None:
         return
 
     ok = ko = 0
+    t0 = time.monotonic()
     for r in todo[:maxi]:
+        if time.monotonic() - t0 > cfg.get("budget_minutes", 25) * 60:
+            print("[génération] budget de temps atteint : la suite au prochain run")
+            break
         try:
             data, model = generate_json(build_prompt(r, profile), cfg["gemini_models"], cfg["groq_model"],
                                         groq_prompt=build_prompt(r, profile, max_chars=9000))
@@ -129,7 +141,7 @@ def _backfill_emails(store: Store, limit: int = 25) -> None:
 
 def _notes(data: dict, model: str) -> str:
     ecarts = data.get("ecarts") or []
-    return f"Modèle : {model}" + (f" | Écarts : {' ; '.join(ecarts)}" if ecarts else "")
+    return f"Prompt {PROMPT_VERSION} | Modèle : {model}" + (f" | Écarts : {' ; '.join(ecarts)}" if ecarts else "")
 
 
 def _int(v) -> int:

@@ -1,5 +1,7 @@
 """Prompt de génération : une offre + la base profil → contenu CV, prompt Claude Design, lettre."""
 
+PROMPT_VERSION = "v3"
+
 PROMPT = """Tu es un conseiller en recrutement spécialisé dans l'industrie (instrumentation, automatisme,
 maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Cédric.
 
@@ -11,6 +13,28 @@ maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Céd
 3. Réordonne et reformule pour coller au vocabulaire de l'offre (mots-clés industriels).
 4. Français professionnel, sobre, sans formules creuses.
 5. Les lettres de la base servent de référence de TON et de STRUCTURE, pas de texte à copier.
+6. CONSOLIDE : les différents CV et le portfolio décrivent la même personne sous plusieurs angles.
+   Croise-les pour retrouver, pour chaque expérience, TOUTES les missions, outils, équipements,
+   normes et résultats mentionnés quelque part dans la base, puis garde les plus pertinents pour l'offre.
+
+# RÈGLES DE RÉDACTION DU CV (exigence d'un recruteur technique industriel)
+- EXPÉRIENCES : pour chaque poste retenu, 3 à 4 missions (jamais moins de 3 si la base le permet),
+  classées de la plus pertinente à la moins pertinente pour l'offre.
+- Chaque mission = verbe d'action technique au passé composé ou à l'infinitif (Installer, Câbler,
+  Paramétrer, Programmer, Diagnostiquer, Étalonner, Mettre en service, Superviser, Dépanner,
+  Rédiger…) + objet technique précis (équipement, système, protocole, logiciel, marque, norme)
+  + contexte ou périmètre (nb de sites, type d'installation, client) + résultat concret si la base
+  le mentionne. Une ligne, 15 à 30 mots, sans phrase vague (« participer à », « divers travaux »).
+- Emploie le VOCABULAIRE MÉTIER exact de l'offre et du domaine (ex. instrumentation, boucle
+  4-20 mA, capteurs/transmetteurs, étalonnage, régulation PID, automate/API Siemens S7-1200,
+  TIA Portal, GRAFCET, schémas électriques, armoire/coffret, consignation, maintenance préventive
+  et corrective, diagnostic de pannes, GMAO, mise en service, réseaux industriels, supervision)
+  UNIQUEMENT quand le fait correspondant existe dans la base.
+- Section « Projets techniques » (2 à 3 projets) tirée du portfolio et des CV si elle renforce la
+  candidature : nom du projet, technologies, ce que tu as réalisé.
+- Compétences regroupées par familles (ex. Automatisme & instrumentation · Électricité industrielle
+  · Maintenance · Réseaux & IoT · Outils/logiciels), mots-clés de l'offre en premier.
+- Titre du CV = intitulé du poste visé (adapté), profil de 3 lignes orienté valeur pour l'employeur.
 
 # OFFRE
 Titre : {titre}
@@ -21,6 +45,9 @@ Texte de l'offre :
 
 # BASE PROFIL — CV (du plus récent au plus ancien)
 {cv}
+
+# BASE PROFIL — PORTFOLIO (projets réels, source : {portfolio_url})
+{portfolio}
 
 # BASE PROFIL — LETTRES DE MOTIVATION DE RÉFÉRENCE
 {lm}
@@ -51,6 +78,8 @@ def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:
         description=(offre.get("description") or "")[:8000],
         cv=(profile.get("CV") or "(aucun CV dans Base_Profil/CV)")[:max_chars],
         lm=(profile.get("LM") or "(aucune lettre de référence)")[: max_chars // 3],
+        portfolio=(profile.get("PORTFOLIO") or "(non disponible)")[: max_chars // 2],
+        portfolio_url=profile.get("PORTFOLIO_URL", ""),
     )
 
 

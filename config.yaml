@@ -62,7 +62,9 @@ generation:
   seuil: 4                      # score minimum pour générer automatiquement
   max_par_run: 12               # candidatures préparées par run (quota IA gratuit)
   pause_s: 5
+  budget_minutes: 25            # temps max de génération par run (le reste passe au run suivant)
   gemini_models: ["gemini-flash-latest", "gemini-flash-lite-latest"]   # 2.5-flash : fermé aux nouveaux comptes
   groq_model: "openai/gpt-oss-120b"
   dossier_cv: "1tnZHfVizLl4hNa7MS7jeRZJZJmf5IgCO"   # Drive : Pipeline Emploi/Base_Profil/CV
   dossier_lm: "1zqFB3JenZ4WonfF5eWY-KyHGBHaj8fm9"   # Drive : Pipeline Emploi/Base_Profil/LM
+  portfolio_url: "https://portfolio.cedrictiene.tech"   # relu chaque semaine, ajouté à la Base profil

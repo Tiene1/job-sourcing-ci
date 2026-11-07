@@ -1189,6 +1189,7 @@ function quickActions(r) {
   const st = r.statut, h = [];
   if (['Nouveau', 'À préparer', 'Test envoyé', 'Erreur envoi'].includes(st)) {
     const ok = !!r.cv_file_id;
+    if (!r.cv_file_id) h.push('<button type="button" class="btn" data-quick="Nouveau" title="L’IA réécrit le CV, la lettre et le prompt au prochain passage du pipeline (≤ 6 h)">Régénérer (IA)</button>');
     h.push('<button type="button" class="btn" data-quick="Ignorée">Ignorer</button>');
     h.push('<button type="button" class="btn" data-quick="Candidature manuelle">Manuelle</button>');
     h.push('<button type="button" class="btn btn-primary" data-quick="À envoyer"' + (ok ? '' : ' disabled title="Déposez d’abord le CV (onglet Candidature)"') + '>' + ic('send') + 'Valider l’envoi</button>');
@@ -1197,6 +1198,10 @@ function quickActions(r) {
 }
 async function quickStatus(st) {
   const r = state.current; if (!r || !state.draft) return;
+  if (st === 'Nouveau') {
+    const ok = await confirmBox('Régénérer avec l’IA ?', 'Le contenu du CV, la lettre et le prompt seront réécrits au prochain passage du pipeline (toutes les 6 h). Vos modifications non encore utilisées seront remplacées ; l’email saisi est conservé.', 'Régénérer', false);
+    if (!ok) return;
+  }
   if (st === 'À envoyer') {
     const email = String(state.draft.email_contact || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Email du recruteur manquant ou invalide (onglet Candidature).', 'err'); return; }
