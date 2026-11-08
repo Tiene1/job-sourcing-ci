@@ -16,7 +16,7 @@ from pathlib import Path
 import yaml
 
 from ..common.store import Store, enabled
-from .core import Http, Offre, cle_doublon, extract_email, lieu_autorise, score
+from .core import Http, Offre, cle_doublon, extract_email, lieu_autorise, score, zone_depuis
 from .sources import COLLECTORS
 
 CSV_COLUMNS = ["id", "date_detection", "source", "url", "entreprise", "titre", "lieu",
@@ -50,7 +50,8 @@ def run(cfg_path: Path, out: Path) -> None:
             known.add(r["id"])
             known.add(Offre(source="", url=r.get("url", ""), titre="").id)
             seen_keys.add(cle_doublon(r.get("entreprise", ""), r.get("titre", ""), r["id"]))
-    cibles = cfg.get("lieux_cibles", [])
+    cibles = zone_depuis(store.params() if store else {}, cfg)
+    ambigus = cfg.get("lieux_ambigus", [])
     stats, kept, errors = {}, [], []
     hors_zone = 0
 
@@ -64,7 +65,7 @@ def run(cfg_path: Path, out: Path) -> None:
             errors.append(f"{name}: {type(exc).__name__}: {exc}"[:200])
             stats[name] = {"brutes": 0, "gardees": 0, "erreur": True}
             continue
-        dans_zone = [o for o in raw if not cibles or lieu_autorise(o.lieu, cibles)]
+        dans_zone = [o for o in raw if not cibles or lieu_autorise(o.lieu, cibles, ambigus)]
         hors_zone += len(raw) - len(dans_zone)
         good = [o for o in (score(o, cfg["scoring"]) for o in dans_zone)
                 if o.score >= cfg["scoring"]["threshold"] and o.id not in known]
@@ -83,7 +84,7 @@ def run(cfg_path: Path, out: Path) -> None:
             except Exception as exc:
                 errors.append(f"détail {o.url}: {type(exc).__name__}"[:200])
         o.email_contact = o.email_contact or extract_email(o.description)
-        if cibles and not lieu_autorise(o.lieu, cibles):   # lieu connu seulement après la fiche détaillée
+        if cibles and not lieu_autorise(o.lieu, cibles, ambigus):   # lieu connu seulement après la fiche détaillée
             hors_zone += 1
             continue
         if o.cle_doublon in seen_keys:

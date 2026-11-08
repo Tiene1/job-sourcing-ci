@@ -25,6 +25,7 @@ const DEFAULT_PARAMS = [
   ['nom_fichier_cv', 'CV_Cedric_TIENE.pdf', 'Nom de la pièce jointe'],
   ['heures_recap', '8,18', 'Heures du récapitulatif email (heure Abidjan)'],
   ['email_recap', 'cedrictiene@gmail.com', 'Adresse qui reçoit le récapitulatif (vide = compte du script)'],
+  ['zone_recherche', '', 'Localités acceptées, séparées par des virgules (vide = Grand Abidjan, voir config.yaml)'],
   ['frequence_recherche_h', '6', 'Recherche d\'offres toutes les N heures (1 à 24, 0 = pause)'],
   ['relance_jours', '10', 'Jours sans réponse avant suggestion de relance'],
   ['sans_reponse_jours', '30', 'Jours avant passage en "Sans réponse"'],
@@ -67,7 +68,7 @@ function setup() {
 }
 
 // Paramètres à stocker en texte brut (Sheets convertit sinon « 8,18 » en date du 18 août)
-const TEXT_PARAMS = ['heures_recap', 'email_recap', 'email_test', 'dossier_cv', 'dossier_lm', 'dossier_cv_envoyes'];
+const TEXT_PARAMS = ['heures_recap', 'email_recap', 'zone_recherche', 'email_test', 'dossier_cv', 'dossier_lm', 'dossier_cv_envoyes'];
 
 function heuresRecap_() {
   const v = params_().heures_recap;

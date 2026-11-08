@@ -1,6 +1,6 @@
 """Prompt de génération : une offre + la base profil → contenu CV, prompt Claude Design, lettre."""
 
-PROMPT_VERSION = "v5.2"
+PROMPT_VERSION = "v5.3"
 
 PROMPT = """Tu es un conseiller en recrutement spécialisé dans l'industrie (instrumentation, automatisme,
 maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Cédric.
@@ -75,7 +75,9 @@ Texte de l'offre :
 {{
   "entreprise": "nom de l'entreprise qui recrute, ou '' si absent",
   "email_contact": "adresse email OÙ ENVOYER LA CANDIDATURE, écrite telle quelle dans l'offre (ex. rh@entreprise.ci). '' si absente. Jamais l'email du site d'annonces (educarriere, jobivoire, novojob, emploi.ci), jamais un nom de site, jamais une adresse inventée",
-  "lieu": "ville / site, ou ''",
+  "lieu": "ville / commune / site d'affectation réel du poste tel qu'écrit dans l'offre, ou ''",
+  "dans_zone": true,
+  "zone_raison": "phrase courte : où se situe le poste et pourquoi il est (ou non) dans la zone",
   "contrat": "CDI / CDD / Stage / Intérim / '' ",
   "exigences": ["5 à 8 exigences clés de l'offre"],
   "adequation": 0,
@@ -92,11 +94,16 @@ prouve directement une compétence demandée par l'offre (ex. offre IoT, dévelo
 systèmes connectés). Pour une offre de maintenance, d'électricité ou d'électromécanique sans lien
 avec ces projets : false. Si false, la lettre ne doit contenir AUCUN lien ni mention du portfolio.
 Si true, mentionne-le en une phrase qui cite le projet concerné, avec le lien {portfolio_url}.
+ZONE DE RECHERCHE : {zone}.
+"dans_zone" = false UNIQUEMENT si l'offre indique clairement que le poste est situé hors de cette zone
+(autre ville de Côte d'Ivoire comme San-Pédro, Yamoussoukro, Bouaké, Korhogo…, ou autre pays), y compris
+quand seul le siège ou le recruteur est à Abidjan mais que le poste est sur un site ailleurs.
+Si le lieu n'est pas précisé, ou s'il est dans la zone, "dans_zone" = true.
 "adequation" est un entier de 0 à 100 (honnête : correspondance réelle entre l'offre et le profil).
 """
 
 
-def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:
+def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:  # noqa: E501
     """max_chars réduit (≈12000) pour Groq dont le quota gratuit est de 8 000 tokens/minute."""
     return PROMPT.format(
         titre=offre.get("titre", ""), source=offre.get("source", ""), url=offre.get("url", ""),
@@ -106,6 +113,7 @@ def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:
         lm=(profile.get("LM") or "(aucune lettre de référence)")[: max_chars // 3],
         portfolio=(profile.get("PORTFOLIO") or "(non disponible)")[: max_chars // 2],
         portfolio_url=profile.get("PORTFOLIO_URL", ""),
+        zone=profile.get("ZONE", "Abidjan et sa périphérie"),
     )
 
 

@@ -43,10 +43,20 @@ def cle_doublon(entreprise: str, titre: str, fallback: str) -> str:
     return hashlib.sha1(f"{norm(entreprise)}|{norm(titre)}".encode()).hexdigest()[:12]
 
 
-def lieu_autorise(lieu: str, cibles: list[str]) -> bool:
-    """Vrai si le lieu est vide (inconnu) ou contient une des localités cibles."""
+def zone_depuis(params: dict, cfg: dict) -> list[str]:
+    """Zone de recherche : paramètre « zone_recherche » du Sheets s'il existe, sinon config.yaml."""
+    z = [x.strip() for x in str(params.get("zone_recherche", "")).split(",") if x.strip()]
+    return z or cfg.get("lieux_cibles", [])
+
+
+def lieu_autorise(lieu: str, cibles: list[str], ambigus: list[str] | None = None) -> bool:
+    """Vrai si le lieu est vide, seulement un pays (« Côte d'Ivoire » : l'IA tranchera)
+    ou contient une des localités cibles."""
+    l = re.sub(r"[^a-z0-9' ]+", " ", norm(lieu)).strip()
+    if not l or l in {re.sub(r"[^a-z0-9' ]+", " ", norm(a)).strip() for a in (ambigus or [])}:
+        return True
     l = norm(lieu)
-    return not l or any(re.search(rf"(?<![a-z]){re.escape(norm(c))}(?![a-z])", l) for c in cibles)
+    return any(re.search(rf"(?<![a-z]){re.escape(norm(c))}(?![a-z])", l) for c in cibles)
 
 
 # ------------------------------------------------------------------ modèle

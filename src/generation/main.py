@@ -17,7 +17,7 @@ from ..common.store import Store, enabled, now
 from .llm import LLMError, generate_json
 from .profile import load_portfolio, load_profile
 from .prompt import PROMPT_VERSION, build_design_prompt, build_prompt
-from ..sourcing.core import Http, extract_email_html, valid_recruiter_email
+from ..sourcing.core import Http, extract_email_html, lieu_autorise, valid_recruiter_email, zone_depuis
 
 
 def run(cfg_path: Path) -> None:
@@ -30,7 +30,8 @@ def run(cfg_path: Path) -> None:
     seuil = int(params.get("seuil_generation", cfg["seuil"]))
     maxi = int(params.get("max_generations_par_run", cfg["max_par_run"]))
 
-    _cleanup(store)
+    full_cfg0 = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    _cleanup(store, zone_depuis(params, full_cfg0), full_cfg0.get("lieux_ambigus", []))
     _backfill_emails(store)
     def outdated(r):   # brouillon « À préparer » sans CV déposé, généré avec un ancien prompt
         return (r.get("statut") == "À préparer" and not r.get("cv_file_id")
@@ -46,6 +47,8 @@ def run(cfg_path: Path) -> None:
         "CV": params.get("dossier_cv", cfg["dossier_cv"]),
         "LM": params.get("dossier_lm", cfg["dossier_lm"]),
     })
+    full_cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    profile["ZONE"] = ", ".join(zone_depuis(params, full_cfg)) or "Abidjan et sa périphérie"
     purl = params.get("portfolio_url", cfg.get("portfolio_url", ""))
     try:
         profile["PORTFOLIO"], profile["PORTFOLIO_URL"] = load_portfolio(store, purl), purl
@@ -57,7 +60,7 @@ def run(cfg_path: Path) -> None:
         store.log("generation", msg)
         return
 
-    ok = ko = 0
+    ok = ko = hors = 0
     t0 = time.monotonic()
     for r in todo[:maxi]:
         if time.monotonic() - t0 > cfg.get("budget_minutes", 25) * 60:
@@ -69,6 +72,15 @@ def run(cfg_path: Path) -> None:
         except LLMError as exc:
             ko += 1
             store.update(r["_row"], {"erreur": f"Génération : {exc}"[:500]})
+            continue
+        if data.get("dans_zone") is False:            # poste hors zone : on ne prépare rien
+            store.update(r["_row"], {
+                "statut": "Ignorée", "lieu": data.get("lieu") or r.get("lieu", ""), "erreur": "",
+                "notes": f"Hors zone (IA) : {data.get('zone_raison', '')}"[:400],
+                "date_preparation": now(),
+            })
+            hors += 1
+            time.sleep(cfg.get("pause_s", 5))
             continue
         lettre = data.get("lettre", "")
         if not data.get("portfolio_pertinent"):        # garde-fou : pas de portfolio hors sujet
@@ -95,16 +107,21 @@ def run(cfg_path: Path) -> None:
         ok += 1
         time.sleep(cfg.get("pause_s", 5))   # respect du quota par minute
 
-    msg = f"{ok} candidature(s) préparée(s), {ko} échec(s), {max(0, len(todo) - maxi)} en file pour le prochain run"
+    msg = (f"{ok} candidature(s) préparée(s), {hors} hors zone ignorée(s), {ko} échec(s), "
+           f"{max(0, len(todo) - maxi)} en file pour le prochain run")
     print(f"[génération] {msg}")
     store.log("generation", msg)
 
 
-def _cleanup(store: Store) -> None:
-    """Corrige les lignes déjà en base : emails de sites ou invalides, prompts sans contenu."""
+def _cleanup(store: Store, cibles: list[str] | None = None, ambigus: list[str] | None = None) -> None:
+    """Corrige les lignes déjà en base : emails de sites ou invalides, prompts sans contenu,
+    offres non envoyées dont le lieu connu est hors zone."""
     fixed = 0
     for r in store.records():
         fields = {}
+        if (cibles and r.get("statut") in ("Nouveau", "À préparer") and not r.get("cv_file_id")
+                and not lieu_autorise(r.get("lieu", ""), cibles, ambigus)):
+            fields.update({"statut": "Ignorée", "notes": f"Hors zone : {r.get('lieu', '')}"})
         if r.get("email_contact") and not valid_recruiter_email(r["email_contact"]):
             fields["email_contact"] = ""
         if r.get("contenu_cv") and r.get("prompt_claude_design", "") != build_design_prompt(r["contenu_cv"]):
