@@ -24,6 +24,7 @@ const DEFAULT_PARAMS = [
   ['nom_expediteur', 'Paul Cédric TIENE YOMA', 'Nom affiché chez le recruteur'],
   ['nom_fichier_cv', 'CV_Cedric_TIENE.pdf', 'Nom de la pièce jointe'],
   ['heures_recap', '8,18', 'Heures du récapitulatif email (heure Abidjan)'],
+  ['email_recap', 'cedrictiene@gmail.com', 'Adresse qui reçoit le récapitulatif (vide = compte du script)'],
   ['frequence_recherche_h', '6', 'Recherche d\'offres toutes les N heures (1 à 24, 0 = pause)'],
   ['relance_jours', '10', 'Jours sans réponse avant suggestion de relance'],
   ['sans_reponse_jours', '30', 'Jours avant passage en "Sans réponse"'],
@@ -55,6 +56,7 @@ function setup() {
   const me = Session.getEffectiveUser().getEmail();
   DEFAULT_PARAMS.filter(r => keys.indexOf(r[0]) < 0)
     .forEach(r => p.appendRow(r[0] === 'email_test' ? [r[0], me, r[2]] : r));
+  repairParams_();
 
   const j = ss.getSheetByName(JOURNAL) || ss.insertSheet(JOURNAL);
   if (j.getLastRow() < 1) j.getRange(1, 1, 1, 3).setValues([['date', 'type', 'message']]).setFontWeight('bold');
@@ -64,13 +66,39 @@ function setup() {
   log_('setup', 'Installation OK');
 }
 
+// Paramètres à stocker en texte brut (Sheets convertit sinon « 8,18 » en date du 18 août)
+const TEXT_PARAMS = ['heures_recap', 'email_recap', 'email_test', 'dossier_cv', 'dossier_lm', 'dossier_cv_envoyes'];
+
+function heuresRecap_() {
+  const v = params_().heures_recap;
+  const ok = /^\s*\d{1,2}(\s*[,;]\s*\d{1,2})*\s*$/.test(String(v || ''));
+  const h = ok ? String(v).split(/[,;]/).map(x => parseInt(x, 10)).filter(x => x >= 0 && x < 24) : [];
+  return h.length ? h : [8, 18];
+}
+
+// Remet en texte les paramètres que Sheets aurait convertis (ex. heures_recap devenu une date)
+function repairParams_() {
+  const sh = sheet_(PARAMS); if (!sh) return;
+  const vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    const k = vals[i][0];
+    if (TEXT_PARAMS.indexOf(k) < 0) continue;
+    const cell = sh.getRange(i + 1, 2);
+    cell.setNumberFormat('@');
+    if (k === 'heures_recap' && !/^\s*\d{1,2}(\s*[,;]\s*\d{1,2})*\s*$/.test(String(vals[i][1]))) {
+      cell.setValue('8,18');
+      log_('parametres', 'heures_recap invalide (converti en date par Sheets) → remis à 8,18');
+    }
+  }
+}
+
 function setupTriggers() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('processSendQueue').timeBased().everyMinutes(10).create();
   ScriptApp.newTrigger('checkReplies').timeBased().everyHours(1).create();
   ScriptApp.newTrigger('scheduleSourcing').timeBased().everyHours(1).create();
-  String(params_().heures_recap || '8,18').split(',').map(h => parseInt(h, 10)).filter(h => h >= 0 && h < 24)
-    .forEach(h => ScriptApp.newTrigger('sendDigest').timeBased().atHour(h).everyDays(1).inTimezone('Africa/Abidjan').create());
+  repairParams_();
+  heuresRecap_().forEach(h => ScriptApp.newTrigger('sendDigest').timeBased().atHour(h).everyDays(1).inTimezone('Africa/Abidjan').create());
   log_('setup', 'Déclencheurs créés');
 }
 
@@ -135,7 +163,11 @@ function api_uploadProfil(cat, filename, mime, b64) {
 function api_saveParams(obj) {
   const sh = sheet_(PARAMS), vals = sh.getDataRange().getValues();
   for (let i = 1; i < vals.length; i++) {
-    if (Object.prototype.hasOwnProperty.call(obj, vals[i][0])) sh.getRange(i + 1, 2).setValue(obj[vals[i][0]]);
+    if (Object.prototype.hasOwnProperty.call(obj, vals[i][0])) {
+      const cell = sh.getRange(i + 1, 2);
+      if (TEXT_PARAMS.indexOf(vals[i][0]) >= 0) cell.setNumberFormat('@');   // évite que « 8,18 » devienne une date
+      cell.setValue(obj[vals[i][0]]);
+    }
   }
   if ('heures_recap' in obj) setupTriggers();
   log_('parametres', 'Paramètres mis à jour');
@@ -273,7 +305,8 @@ function sendDigest() {
   const aRelancer = by('Envoyé').filter(r => (now - parseDate_(r.date_envoi)) / 86400000 >= Number(p.relance_jours || 10));
   const urgent = aPreparer.filter(r => { const d = parseDate_(r.date_limite); return d && (d - now) / 86400000 <= 3; });
   const total = aPreparer.length + erreurs.length + reponses.length + aRelancer.length;
-  if (!total) return;
+  const journal = sheet_(JOURNAL).getDataRange().getDisplayValues();
+  const dernier = t => { for (let i = journal.length - 1; i > 0; i--) if (journal[i][1] === t) return journal[i][0] + ' — ' + journal[i][2]; return 'aucune'; };
 
   const url = ScriptApp.getService().getUrl();
   const top = aPreparer.sort((a, b) => (Number(b.adequation) || 0) - (Number(a.adequation) || 0)).slice(0, 5);
@@ -289,11 +322,13 @@ function sendDigest() {
     ${urgent.length ? `<h3 style="color:#c0392b">Urgent</h3><ul>${urgent.map(li).join('')}</ul>` : ''}
     <p><a href="${url}" style="background:#1f3a5f;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Ouvrir le tableau de bord</a></p>
     ${String(p.mode_test).toUpperCase() === 'TRUE' ? '<p style="color:#c0392b">⚠️ Mode test actif : aucun email ne part chez les recruteurs.</p>' : ''}
+    ${!total ? '<p>Rien à traiter pour l’instant : le pipeline tourne normalement.</p>' : ''}
+    <p style="color:#666;font-size:12px">Dernière recherche : ${esc_(dernier('sourcing'))}<br>Dernier envoi : ${esc_(dernier('envoi'))}</p>
   </div>`;
-  GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),
+  GmailApp.sendEmail(String(p.email_recap || '').trim() || Session.getEffectiveUser().getEmail(),
     `Pipeline Emploi : ${aPreparer.length} à préparer, ${reponses.length} réponse(s)`,
     `Ouvre le tableau de bord : ${url}`, { htmlBody: html, name: 'Pipeline Emploi' });
-  log_('recap', `Récap envoyé (${total} éléments)`);
+  log_('recap', `Récap envoyé (${total} éléments) → ${String(p.email_recap || '').trim() || 'compte du script'}`);
 }
 
 // ============================================================ OUTILS
