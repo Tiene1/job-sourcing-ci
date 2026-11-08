@@ -24,6 +24,31 @@ HEADERS = {
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
+LINKEDIN_JOB_RE = re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(\d+)", re.I)
+
+
+def canonical_url(url: str) -> str:
+    """URL stable d'une offre : supprime les paramètres de suivi (trackingId, refId…).
+    Une même offre LinkedIn reçue dans 2 alertes donne ainsi le même id."""
+    m = LINKEDIN_JOB_RE.search(url or "")
+    if m:
+        return f"https://www.linkedin.com/jobs/view/{m.group(1)}/"
+    return url or ""
+
+
+def cle_doublon(entreprise: str, titre: str, fallback: str) -> str:
+    """Même poste chez la même entreprise publié sur 2 sites (ou reçu 2 fois)."""
+    if not norm(entreprise):
+        return fallback
+    return hashlib.sha1(f"{norm(entreprise)}|{norm(titre)}".encode()).hexdigest()[:12]
+
+
+def lieu_autorise(lieu: str, cibles: list[str]) -> bool:
+    """Vrai si le lieu est vide (inconnu) ou contient une des localités cibles."""
+    l = norm(lieu)
+    return not l or any(re.search(rf"(?<![a-z]){re.escape(norm(c))}(?![a-z])", l) for c in cibles)
+
+
 # ------------------------------------------------------------------ modèle
 @dataclass
 class Offre:
@@ -45,18 +70,16 @@ class Offre:
 
     @property
     def id(self) -> str:
-        return hashlib.sha1(norm(self.url).encode()).hexdigest()[:12]
+        return hashlib.sha1(norm(canonical_url(self.url)).encode()).hexdigest()[:12]
 
     @property
     def cle_doublon(self) -> str:
-        """Même poste chez la même entreprise publié sur 2 sites."""
-        if not self.entreprise:
-            return self.id
-        return hashlib.sha1(f"{norm(self.entreprise)}|{norm(self.titre)}".encode()).hexdigest()[:12]
+        return cle_doublon(self.entreprise, self.titre, self.id)
 
     def to_row(self) -> dict:
         d = asdict(self)
         d["id"] = self.id
+        d["url"] = canonical_url(self.url)
         d["mots_cles"] = ", ".join(self.mots_cles)
         return d
 

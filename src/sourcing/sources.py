@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import feedparser
 from bs4 import BeautifulSoup
 
-from .core import Http, Offre, card_of, clean, extract_email_html
+from .core import LINKEDIN_JOB_RE, canonical_url, Http, Offre, card_of, clean, extract_email_html
 
 DATE_RE = re.compile(r"\d{2}/\d{2}/\d{4}")
 
@@ -103,6 +103,29 @@ def novojob(http: Http, cfg: dict) -> list[Offre]:
 
 
 # ------------------------------------------------------------ Alertes email (IMAP)
+ALERTE_PARASITE = re.compile(
+    r"^votre alerte|^voir (toutes|plus)|^see all|désinscri|unsubscribe|paramètres|settings|"
+    r"^g[ée]rer|^modifier l.alerte|^rechercher", re.I)
+
+
+def _linkedin_split(labels: list[str]) -> tuple[str, str, str]:
+    """LinkedIn met dans un lien « Titre » et dans un autre « Titre Entreprise · Lieu (Sur site) ».
+    Retourne (titre, entreprise, lieu)."""
+    labels = sorted(set(labels), key=len)
+    titre = labels[0]
+    entreprise = lieu = ""
+    for lab in labels[1:]:
+        reste = lab[len(titre):].strip() if lab.startswith(titre) else lab
+        if "·" in reste:
+            entreprise, lieu = (x.strip() for x in reste.split("·", 1))
+            lieu = re.sub(r"\s*\((sur site|hybride|à distance|on-site|hybrid|remote)\)\s*$", "", lieu, flags=re.I)
+            break
+    if "·" in titre and not entreprise:          # un seul lien, tout dans le libellé
+        tete, lieu = (x.strip() for x in titre.rsplit("·", 1))
+        titre, entreprise = tete, ""
+    return titre, entreprise, lieu
+
+
 def email_alerts(http: Http, cfg: dict) -> list[Offre]:
     user, pwd = os.getenv("GMAIL_USER"), os.getenv("GMAIL_APP_PASSWORD")
     if not (user and pwd):
@@ -111,7 +134,7 @@ def email_alerts(http: Http, cfg: dict) -> list[Offre]:
     from imap_tools import AND, MailBox
 
     since = date.today() - timedelta(days=cfg.get("since_days", 2))
-    out: dict[str, Offre] = {}
+    groupes: dict[str, dict] = {}     # url canonique → libellés + carte
     with MailBox("imap.gmail.com").login(user, pwd, initial_folder=cfg.get("imap_folder", "INBOX")) as mb:
         for msg in mb.fetch(AND(date_gte=since), mark_seen=False, bulk=True):
             sender = (msg.from_ or "").lower()
@@ -123,14 +146,24 @@ def email_alerts(http: Http, cfg: dict) -> list[Offre]:
                 label, href = clean(a.get_text(" ")), a["href"]
                 if len(label) < 8 or not re.search(r"offre|job|emploi|view", href, re.I):
                     continue
-                if re.search(r"désinscri|unsubscribe|voir toutes|paramètres|settings", label, re.I):
-                    continue
-                out.setdefault(href, Offre(
-                    source=f"email:{src}", url=href, titre=label,
-                    description=clean(card_of(a).get_text(" | ")),
-                    date_pub=email.utils.format_datetime(msg.date) if msg.date else "",
-                ))
-    return list(out.values())
+                if ALERTE_PARASITE.search(label) or re.search(r"search-results|/jobs/search|/jobs/collections", href, re.I):
+                    continue                       # en-têtes d'alerte, liens de recherche : pas des offres
+                url = canonical_url(href)
+                if "linkedin.com" in href and not LINKEDIN_JOB_RE.search(href):
+                    continue                       # liens LinkedIn qui ne pointent pas vers une offre
+                g = groupes.setdefault(url, {"src": src, "labels": [], "card": "", "date": msg.date})
+                g["labels"].append(label)
+                g["card"] = g["card"] or clean(card_of(a).get_text(" | "))
+
+    out = []
+    for url, g in groupes.items():
+        titre, entreprise, lieu = _linkedin_split(g["labels"]) if "linkedin.com" in url else (min(g["labels"], key=len), "", "")
+        out.append(Offre(
+            source=f"email:{g['src']}", url=url, titre=titre, entreprise=entreprise, lieu=lieu,
+            description=g["card"],
+            date_pub=email.utils.format_datetime(g["date"]) if g["date"] else "",
+        ))
+    return out
 
 
 COLLECTORS = {

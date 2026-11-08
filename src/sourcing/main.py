@@ -16,7 +16,7 @@ from pathlib import Path
 import yaml
 
 from ..common.store import Store, enabled
-from .core import Http, extract_email, score
+from .core import Http, Offre, cle_doublon, extract_email, lieu_autorise, score
 from .sources import COLLECTORS
 
 CSV_COLUMNS = ["id", "date_detection", "source", "url", "entreprise", "titre", "lieu",
@@ -41,8 +41,18 @@ def run(cfg_path: Path, out: Path) -> None:
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     http = Http(delay=cfg.get("delay_seconds", 2))
     store = Store() if enabled() else None
-    known = store.ids() if store else set()
-    stats, kept, seen_keys, errors = {}, [], set(), []
+    # déjà en base : ids (recalculés sur l'URL canonique) + clés entreprise|titre (offre vue sur un autre site)
+    known, seen_keys = set(), set()
+    if store:
+        for r in store.records():
+            if not r.get("id"):
+                continue
+            known.add(r["id"])
+            known.add(Offre(source="", url=r.get("url", ""), titre="").id)
+            seen_keys.add(cle_doublon(r.get("entreprise", ""), r.get("titre", ""), r["id"]))
+    cibles = cfg.get("lieux_cibles", [])
+    stats, kept, errors = {}, [], []
+    hors_zone = 0
 
     for name, scfg in cfg["sources"].items():
         if not scfg.get("enabled"):
@@ -54,7 +64,9 @@ def run(cfg_path: Path, out: Path) -> None:
             errors.append(f"{name}: {type(exc).__name__}: {exc}"[:200])
             stats[name] = {"brutes": 0, "gardees": 0, "erreur": True}
             continue
-        good = [o for o in (score(o, cfg["scoring"]) for o in raw)
+        dans_zone = [o for o in raw if not cibles or lieu_autorise(o.lieu, cibles)]
+        hors_zone += len(raw) - len(dans_zone)
+        good = [o for o in (score(o, cfg["scoring"]) for o in dans_zone)
                 if o.score >= cfg["scoring"]["threshold"] and o.id not in known]
         stats[name] = {"brutes": len(raw), "gardees": len(good), "erreur": False}
         kept.extend((o, detail) for o in good)
@@ -71,6 +83,9 @@ def run(cfg_path: Path, out: Path) -> None:
             except Exception as exc:
                 errors.append(f"détail {o.url}: {type(exc).__name__}"[:200])
         o.email_contact = o.email_contact or extract_email(o.description)
+        if cibles and not lieu_autorise(o.lieu, cibles):   # lieu connu seulement après la fiche détaillée
+            hors_zone += 1
+            continue
         if o.cle_doublon in seen_keys:
             continue
         seen_keys.add(o.cle_doublon)
@@ -86,6 +101,8 @@ def run(cfg_path: Path, out: Path) -> None:
     lines = [f"Sourcing : {len(rows)} nouvelle(s) offre(s) pertinente(s) → {where}"]
     lines += [f"- {o.titre} | {o.entreprise or o.source} | score {o.score} | "
               f"{'email ✔' if o.email_contact else 'pas d’email'}\n  {o.url}" for o in final[:15]]
+    detail_sources = " · ".join(f"{n} {s['brutes']}→{s['gardees']}" for n, s in stats.items())
+    lines.append(f"Sources (brutes→retenues) : {detail_sources}" + (f" · {hors_zone} hors zone écartée(s)" if hors_zone else ""))
     if errors:
         lines.append("Erreurs : " + " ; ".join(errors))
     silent = [n for n, s in stats.items() if s["brutes"] == 0]
@@ -95,7 +112,8 @@ def run(cfg_path: Path, out: Path) -> None:
     print("\n" + summary)
     (out / "summary.json").write_text(json.dumps({"stats": stats, "errors": errors}, indent=2))
     if store:
-        store.log("sourcing", lines[0] + (" | " + lines[-1] if errors or silent else ""))
+        store.log("sourcing", " | ".join([lines[0], next(l for l in lines if l.startswith("Sources"))]
+                                          + ([lines[-1]] if errors or silent else [])))
 
 
 if __name__ == "__main__":

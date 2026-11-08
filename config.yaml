@@ -39,6 +39,14 @@ scoring:
 max_details_per_run: 40   # fiches détaillées téléchargées par run (politesse + minutes)
 delay_seconds: 2
 
+# Zone géographique : les offres dont le lieu est connu et ne contient aucune de ces localités sont écartées
+# (utile pour les alertes LinkedIn qui proposent parfois des postes au Maroc, au Sénégal…)
+lieux_cibles: ["côte d'ivoire", "cote d'ivoire", "ivory coast", "abidjan", "cocody", "plateau", "yopougon",
+  "marcory", "treichville", "koumassi", "port-bouët", "port-bouet", "abobo", "adjamé", "bingerville",
+  "anyama", "songon", "grand-bassam", "bassam", "jacqueville", "dabou", "san-pédro", "san pedro",
+  "yamoussoukro", "bouaké", "bouake", "korhogo", "daloa", "man", "gagnoa", "abengourou", "divo", "soubré",
+  "odienné", "séguéla", "bondoukou", "agboville", "tiassalé", "sassandra"]
+
 sources:
   jobivoire:
     enabled: true
