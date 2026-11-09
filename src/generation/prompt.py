@@ -2,8 +2,8 @@
 
 PROMPT_VERSION = "v5.3"
 
-PROMPT = """Tu es un conseiller en recrutement spécialisé dans l'industrie (instrumentation, automatisme,
-maintenance industrielle) en Côte d'Ivoire. Tu prépares la candidature de Cédric.
+PROMPT = """Tu es un conseiller en recrutement spécialisé dans {domaine}{en_pays}.
+Tu prépares la candidature de {candidat}.
 
 # RÈGLES ABSOLUES
 1. Utilise UNIQUEMENT les faits présents dans la BASE PROFIL ci-dessous. N'invente jamais une
@@ -113,12 +113,15 @@ def build_prompt(offre: dict, profile: dict, max_chars: int = 60000) -> str:  # 
         lm=(profile.get("LM") or "(aucune lettre de référence)")[: max_chars // 3],
         portfolio=(profile.get("PORTFOLIO") or "(non disponible)")[: max_chars // 2],
         portfolio_url=profile.get("PORTFOLIO_URL", ""),
-        zone=profile.get("ZONE", "Abidjan et sa périphérie"),
+        zone=profile.get("ZONE", "la zone de recherche"),
+        candidat=profile.get("CANDIDAT", "la personne dont le profil est donné ci-dessous"),
+        domaine=profile.get("DOMAINE", "le métier visé par l'offre"),
+        en_pays=f" en {profile['PAYS']}" if profile.get("PAYS") else "",
     )
 
 
 DESIGN_PROMPT = """Crée mon CV en reproduisant EXACTEMENT la mise en page de mon CV de référence
-(joint à cette conversation : « CV Technicien Automatisme & Instrumentation TIA Portal »).
+(joint à cette conversation : « {cv_reference} »).
 
 MISE EN PAGE (identique au modèle)
 - Format A4, UNE seule page, prêt à exporter en PDF.
@@ -145,5 +148,9 @@ CONTENU
 """
 
 
+# Nom du CV de référence joint dans Claude Design (config.yaml → profil.cv_reference_design)
+CV_REFERENCE = "mon CV de référence"
+
+
 def build_design_prompt(contenu_cv: str) -> str:
-    return DESIGN_PROMPT.format(contenu=(contenu_cv or "").strip())
+    return DESIGN_PROMPT.format(contenu=(contenu_cv or "").strip(), cv_reference=CV_REFERENCE)

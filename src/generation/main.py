@@ -16,6 +16,7 @@ import yaml
 from ..common.store import Store, enabled, now
 from .llm import LLMError, generate_json
 from .profile import load_portfolio, load_profile
+from . import prompt as prompt_mod
 from .prompt import PROMPT_VERSION, build_design_prompt, build_prompt
 from ..sourcing.core import Http, extract_email_html, lieu_autorise, valid_recruiter_email, zone_depuis
 
@@ -31,6 +32,7 @@ def run(cfg_path: Path) -> None:
     maxi = int(params.get("max_generations_par_run", cfg["max_par_run"]))
 
     full_cfg0 = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    prompt_mod.CV_REFERENCE = full_cfg0.get("profil", {}).get("cv_reference_design") or prompt_mod.CV_REFERENCE
     _cleanup(store, zone_depuis(params, full_cfg0), full_cfg0.get("lieux_ambigus", []))
     _backfill_emails(store)
     def outdated(r):   # brouillon « À préparer » sans CV déposé, généré avec un ancien prompt
@@ -48,7 +50,11 @@ def run(cfg_path: Path) -> None:
         "LM": params.get("dossier_lm", cfg["dossier_lm"]),
     })
     full_cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
-    profile["ZONE"] = ", ".join(zone_depuis(params, full_cfg)) or "Abidjan et sa périphérie"
+    profile["ZONE"] = ", ".join(zone_depuis(params, full_cfg)) or "la zone de recherche"
+    prof = full_cfg.get("profil", {})
+    profile["CANDIDAT"] = prof.get("nom", "")
+    profile["DOMAINE"] = prof.get("domaine", "")
+    profile["PAYS"] = prof.get("pays", "")
     purl = params.get("portfolio_url", cfg.get("portfolio_url", ""))
     try:
         profile["PORTFOLIO"], profile["PORTFOLIO_URL"] = load_portfolio(store, purl), purl

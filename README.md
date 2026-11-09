@@ -1,75 +1,75 @@
-# job-sourcing-ci — Pipeline de candidatures automatisé (Côte d'Ivoire)
+# JobEngine
 
-| Module | Où | Rôle |
+**Find. Tailor. Apply.**
+
+JobEngine automatise la partie répétitive d'une recherche d'emploi. Il lit les offres publiées sur plusieurs sites et dans les alertes email, garde celles qui correspondent au métier et à la zone recherchés, puis fait préparer par une IA un CV ciblé et une lettre pour chacune. Un tableau de bord web permet de valider, d'envoyer et de suivre les candidatures.
+
+Tout tourne dans le cloud, sur des services gratuits : GitHub Actions, Google Sheets, Google Apps Script, Gmail et des API d'IA en offre gratuite. Aucun serveur, aucun abonnement.
+
+![Tableau de bord](docs/tableau-de-bord.webp)
+
+> Les captures utilisent des données de démonstration : entreprises et adresses fictives.
+
+## Ce que fait JobEngine
+
+| Étape | Où | Rôle |
 |---|---|---|
-| 1 Sourcing | GitHub Actions (`src/sourcing`) | Jobivoire, Educarriere, Novojob RSS, alertes email → Sheets (`Nouveau`) |
-| 2 Génération | GitHub Actions (`src/generation`) | Base_Profil (Drive) + Gemini/Groq → contenu CV, prompt Claude Design, objet, lettre (`À préparer`) |
-| 3 Validation | Apps Script Web App (`apps-script/`) | Tableau de bord : copier le prompt, déposer le CV PDF, relire, valider (`À envoyer`) |
-| 4 Envoi | Apps Script (toutes les 10 min) | Contrôles + Gmail (lettre + CV) → `Envoyé` |
-| 5 Suivi | Apps Script (toutes les heures) | Détection des réponses → `Entretien` / `Refusé` / `Réponse reçue` |
-| Alertes | Apps Script (2×/jour) | Email récapitulatif uniquement s'il y a du travail |
+| 1. Collecte | GitHub Actions, `src/sourcing` | Lit les sites d'offres, un flux RSS et les alertes email reçues dans Gmail (LinkedIn, sites d'emploi) |
+| 2. Tri | GitHub Actions, `src/sourcing` | Score par mots-clés métier, dédoublonnage entre sites et entre passages, filtre de zone, recherche de l'email du recruteur |
+| 3. Préparation | GitHub Actions, `src/generation` | Gemini (bascule sur Groq) prépare le contenu du CV, la lettre, l'objet du mail et un prompt de mise en page, à partir des CV de référence du candidat |
+| 4. Validation | Apps Script, `apps-script/` | Le candidat crée le CV, dépose le PDF et valide depuis le tableau de bord |
+| 5. Envoi | Apps Script, toutes les 10 min | File d'envoi Gmail avec CV en pièce jointe, plafond par jour, mode test |
+| 6. Suivi | Apps Script, toutes les heures | Détection des réponses dans le fil Gmail, récapitulatif email 2 fois par jour |
 
-![Tableau de bord](docs/apercu_tableau_de_bord.png)
+![Architecture](docs/architecture.webp)
 
----
-## Historique : Module 1 — Sourcing des offres
+## Principes
 
-Pipeline de recherche d'emploi automatisé — postes **instrumentiste / automaticien / maintenance industrielle**.
-Budget : **0 €**. Exécution : **cloud (GitHub Actions)**, indépendante du PC.
+- **Le candidat garde la main.** Rien ne part sans un CV déposé par lui. Un mode test redirige tous les envois vers sa propre adresse.
+- **L'IA n'invente rien.** Intitulés de poste, entreprises, dates et diplômes sont repris tels quels des CV de référence ; les écarts avec l'offre sont notés.
+- **Tout est tracé.** Chaque collecte, préparation et envoi est inscrit dans l'onglet *Journal*.
 
-## Architecture retenue (Variante B)
+![Candidature préparée](docs/candidature.webp)
 
-| Couche | Brique |
+## Installation
+
+### 1. Google Sheets et Apps Script
+1. Créez un Google Sheets vide, puis ouvrez **Extensions → Apps Script**.
+2. Copiez `apps-script/Code.gs` et `apps-script/Index.html` dans le projet.
+3. Exécutez `setup` (onglets, paramètres), puis `setupTriggers` (déclencheurs).
+4. **Déployer → Nouveau déploiement → Application Web** : c'est le tableau de bord.
+5. Dans **Paramètres du projet → Propriétés du script**, ajoutez :
+   - `GITHUB_TOKEN` : jeton GitHub (accès *Actions : lecture et écriture* sur ce dépôt) ;
+   - `GITHUB_REPO` : `propriétaire/dépôt`, si différent de la valeur par défaut.
+
+### 2. Base profil sur Google Drive
+1. Créez deux dossiers : CV de référence et lettres de référence (PDF, DOCX ou Google Docs).
+2. Partagez-les, ainsi que le Google Sheets, avec l'adresse du compte de service Google.
+3. Reportez leurs identifiants dans `config.yaml` (`generation.dossier_cv`, `generation.dossier_lm`).
+
+### 3. Secrets GitHub (Settings → Secrets and variables → Actions)
+| Secret | Rôle |
 |---|---|
-| Déclenchement | GitHub Actions `schedule` + `workflow_dispatch` (option : cron-job.org) |
-| Collecte HTML | `httpx` + en-têtes navigateur → `curl_cffi` si protection → Playwright en dernier recours |
-| Flux RSS | `feedparser` |
-| Alertes email (LinkedIn, sites bloqués) | `imap-tools` (Gmail + mot de passe d'application) |
-| Parsing | `beautifulsoup4` / `selectolax` |
-| Format commun | `pydantic` (modèle `Offre`) |
-| Dédoublonnage | hash `entreprise+poste` + `rapidfuzz` |
-| Stockage | `gspread` + compte de service Google → Google Sheets |
-| Robustesse | `tenacity` (retries), `try/except` par source, `timeout-minutes` |
-| Supervision | Alerte Telegram (échec / source muette 2 runs de suite) |
-| Secrets | GitHub Secrets |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Clé JSON du compte de service (Sheets et Drive) |
+| `SHEET_ID` | Identifiant du Google Sheets |
+| `GEMINI_API_KEY` | Clé API Gemini (Google AI Studio, offre gratuite) |
+| `GROQ_API_KEY` | Clé API Groq, modèle de secours (facultatif) |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Lecture des alertes email en IMAP, avec un mot de passe d'application (facultatif) |
 
-### Solutions aux limites
+Aucun secret n'est stocké dans le code.
 
-| Limite | Solution |
-|---|---|
-| IP GitHub bloquée | Niveaux : en-têtes réalistes → délais → `curl_cffi` → alertes email → relais Apps Script → Playwright |
-| Quota 2 000 min/mois (repo privé) | Cache pip, pas de Playwright par défaut, requêtes conditionnelles, `timeout-minutes` (~240 min/mois estimées) |
-| Cron imprécis | Minutes décalées (`17 */6 * * *`) + `workflow_dispatch` ; cron-job.org si précision requise |
-| Règle des 60 jours | Ne concerne que les repos **publics** → repo **privé** |
-| Sélecteurs cassés | Sélecteurs dans `config.yaml`, alerte si 0 offre 2 runs de suite, HTML brut en artifact |
-| Runner éphémère | Colonne `ID` du Sheets = état de dédoublonnage |
-| Quota Sheets | Une écriture groupée (`append_rows`) par run |
-| Légal / politesse | Pages publiques uniquement, robots.txt respecté, 3–5 s entre requêtes |
+### 4. Adapter à votre recherche (`config.yaml`)
+- `profil` : nom du candidat, domaine, pays, nom du CV de référence pour la mise en page.
+- `scoring.keywords` : mots-clés du métier et leurs poids ; `threshold` : score minimum.
+- `lieux_cibles` : zone géographique (modifiable aussi dans le tableau de bord, paramètre `zone_recherche`).
+- `sources` : sites, flux RSS et dossier Gmail des alertes.
 
-## Étape actuelle : diagnostic des sources
+La fréquence de recherche, le plafond d'envois, le mode test et les heures du récapitulatif se règlent dans l'onglet **Paramètres** du tableau de bord.
 
-Teste chaque site **depuis les serveurs GitHub** sur 3 niveaux d'accès et produit un rapport.
+## Stack
 
-### Lancer le test
-1. Créer un repo **privé** sur GitHub (ex. `job-sourcing-ci`).
-2. Pousser ce dossier :
-   ```bash
-   git init && git add . && git commit -m "Diagnostic des sources"
-   git branch -M main
-   git remote add origin https://github.com/<ton-compte>/job-sourcing-ci.git
-   git push -u origin main
-   ```
-3. GitHub → onglet **Actions** → *Diagnostic des sources CI* → **Run workflow**.
-4. Après ~2 min : le rapport s'affiche dans le **résumé du run** ; le HTML brut est dans l'artifact `diagnostic-report`.
+Python (httpx, BeautifulSoup, feedparser, imap-tools, gspread, tenacity) · GitHub Actions · Google Apps Script · Google Sheets · Gmail · Google Drive · Gemini · Groq · JavaScript · Chart.js
 
-### Lire le verdict
-| Verdict | Signification | Suite |
-|---|---|---|
-| `OK (python_default)` | Accès libre | httpx simple |
-| `OK (browser_headers)` | Bloque les robots naïfs | En-têtes navigateur |
-| `OK (curl_cffi_chrome)` | Protection TLS / Cloudflare | `curl_cffi` |
-| `ACCESSIBLE MAIS 0 OFFRE` | Rendu JavaScript ou motif d'URL à corriger | Inspecter le HTML, puis Playwright / API interne |
-| `BLOQUÉ depuis GitHub` | IP datacenter refusée | Alertes email ou relais Apps Script |
+## Licence
 
-### Ajouter une source
-Ajouter un bloc dans `diagnostic/sources.yaml` (`id`, `name`, `url`, `offer_link_regex`, `rss_candidates`).
+MIT

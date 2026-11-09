@@ -1,4 +1,4 @@
-name: Pipeline - Sourcing + Génération
+name: JobEngine - Recherche + Préparation
 
 on:
   # Plus de cron ici : la fréquence est pilotée depuis le tableau de bord

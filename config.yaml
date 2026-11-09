@@ -39,6 +39,13 @@ scoring:
 max_details_per_run: 40   # fiches détaillées téléchargées par run (politesse + minutes)
 delay_seconds: 2
 
+# Profil du candidat (À ADAPTER) : utilisé dans les consignes données à l'IA
+profil:
+  nom: "Cédric"
+  domaine: "l'industrie (instrumentation, automatisme, maintenance industrielle)"
+  pays: "Côte d'Ivoire"
+  cv_reference_design: "CV Technicien Automatisme & Instrumentation TIA Portal"   # CV joint dans Claude Design
+
 # Zone géographique (modifiable dans l'onglet Parametres, clé « zone_recherche », liste séparée par des virgules).
 # Une offre dont le lieu est connu et ne contient aucune de ces localités est écartée ;
 # un lieu inconnu ou seulement « Côte d'Ivoire » est vérifié ensuite par l'IA dans le texte de l'offre.
@@ -73,6 +80,7 @@ generation:
   budget_minutes: 25            # temps max de génération par run (le reste passe au run suivant)
   gemini_models: ["gemini-flash-latest", "gemini-flash-lite-latest"]   # 2.5-flash : fermé aux nouveaux comptes
   groq_model: "openai/gpt-oss-120b"
-  dossier_cv: "1tnZHfVizLl4hNa7MS7jeRZJZJmf5IgCO"   # Drive : Pipeline Emploi/Base_Profil/CV
-  dossier_lm: "1zqFB3JenZ4WonfF5eWY-KyHGBHaj8fm9"   # Drive : Pipeline Emploi/Base_Profil/LM
-  portfolio_url: "https://portfolio.cedrictiene.tech"   # relu chaque semaine, ajouté à la Base profil
+  # ↓ À ADAPTER : identifiants des dossiers Drive partagés avec le compte de service
+  dossier_cv: "1tnZHfVizLl4hNa7MS7jeRZJZJmf5IgCO"   # Drive : JobEngine/Base_Profil/CV
+  dossier_lm: "1zqFB3JenZ4WonfF5eWY-KyHGBHaj8fm9"   # Drive : JobEngine/Base_Profil/LM
+  portfolio_url: "https://portfolio.cedrictiene.tech"   # optionnel : relu chaque semaine, ajouté à la Base profil

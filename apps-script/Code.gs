@@ -1,5 +1,5 @@
 /**
- * Pipeline Emploi — Apps Script (lié au Google Sheets "Pipeline Candidatures (BDD)")
+ * JobEngine — Apps Script (lié au Google Sheets "Pipeline Candidatures (BDD)")
  * Modules : 3 Validation (Web App) · 4 Envoi · 5 Suivi · Récapitulatif email
  *
  * Installation : coller ce fichier + Index.html, exécuter setup() puis setupTriggers(),
@@ -106,7 +106,7 @@ function setupTriggers() {
 // ============================================================ WEB APP
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Pilote Emploi')
+    .setTitle('JobEngine')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -189,7 +189,9 @@ function api_runRepliesNow() { checkReplies(); return api_getData(); }
 // ============================================================ MODULE 1 — PLANIFICATION DE LA RECHERCHE
 // Le tableau de bord pilote la fréquence : ce déclencheur horaire lance le workflow GitHub
 // quand le délai « frequence_recherche_h » est écoulé. Jeton GitHub : propriété de script GITHUB_TOKEN.
-const GITHUB_REPO = 'Tiene1/job-sourcing-ci', GITHUB_WORKFLOW = 'sourcing.yml';
+// Dépôt GitHub qui exécute la recherche : propriété de script GITHUB_REPO (« propriétaire/dépôt »), sinon cette valeur
+const GITHUB_REPO = PropertiesService.getScriptProperties().getProperty('GITHUB_REPO') || 'Tiene1/jobengine',
+      GITHUB_WORKFLOW = 'sourcing.yml';
 
 function scheduleSourcing() {
   const h = Number(params_().frequence_recherche_h || 6);
@@ -313,7 +315,7 @@ function sendDigest() {
   const top = aPreparer.sort((a, b) => (Number(b.adequation) || 0) - (Number(a.adequation) || 0)).slice(0, 5);
   const li = r => `<li><b>${esc_(r.titre)}</b> — ${esc_(r.entreprise || r.source)} · adéquation ${r.adequation || '?'}%${r.date_limite ? ' · limite ' + esc_(r.date_limite) : ''}</li>`;
   const html = `<div style="font-family:Arial,sans-serif;max-width:600px">
-    <h2 style="color:#1f3a5f">Pipeline Emploi — ton point du jour</h2>
+    <h2 style="color:#1f3a5f">JobEngine — ton point du jour</h2>
     <table style="border-collapse:collapse;width:100%">
       ${[['📝 À préparer', aPreparer.length], ['⏰ Expirent sous 3 jours', urgent.length], ['📩 Réponses à traiter', reponses.length],
          ['🔁 À relancer', aRelancer.length], ['❌ Erreurs d’envoi', erreurs.length]]
@@ -327,8 +329,8 @@ function sendDigest() {
     <p style="color:#666;font-size:12px">Dernière recherche : ${esc_(dernier('sourcing'))}<br>Dernier envoi : ${esc_(dernier('envoi'))}</p>
   </div>`;
   GmailApp.sendEmail(String(p.email_recap || '').trim() || Session.getEffectiveUser().getEmail(),
-    `Pipeline Emploi : ${aPreparer.length} à préparer, ${reponses.length} réponse(s)`,
-    `Ouvre le tableau de bord : ${url}`, { htmlBody: html, name: 'Pipeline Emploi' });
+    `JobEngine : ${aPreparer.length} à préparer, ${reponses.length} réponse(s)`,
+    `Ouvre le tableau de bord : ${url}`, { htmlBody: html, name: 'JobEngine' });
   log_('recap', `Récap envoyé (${total} éléments) → ${String(p.email_recap || '').trim() || 'compte du script'}`);
 }
 
