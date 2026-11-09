@@ -190,7 +190,7 @@ function api_runRepliesNow() { checkReplies(); return api_getData(); }
 // Le tableau de bord pilote la fréquence : ce déclencheur horaire lance le workflow GitHub
 // quand le délai « frequence_recherche_h » est écoulé. Jeton GitHub : propriété de script GITHUB_TOKEN.
 // Dépôt GitHub qui exécute la recherche : propriété de script GITHUB_REPO (« propriétaire/dépôt »), sinon cette valeur
-const GITHUB_REPO = PropertiesService.getScriptProperties().getProperty('GITHUB_REPO') || 'Tiene1/job-sourcing-ci',
+const GITHUB_REPO = PropertiesService.getScriptProperties().getProperty('GITHUB_REPO') || 'Tiene1/jobengine',
       GITHUB_WORKFLOW = 'sourcing.yml';
 
 function scheduleSourcing() {
