@@ -75,11 +75,11 @@ lieux_cibles: ["abidjan", "cocody", "plateau", "yopougon", "marcory", "treichvil
 lieux_ambigus: ["côte d'ivoire", "cote d'ivoire", "côte d’ivoire", "cote d’ivoire", "ivory coast", "ci"]
 
 sources:
-  optioncarriere:
-    enabled: true
-    url: https://www.optioncarriere.ci
-  go_online_africa:
-    enabled: true
+  #optioncarriere:
+    #enabled: true
+    #url: https://www.optioncarriere.ci*
+  #go_online_africa:
+    #enabled: true
   jobivoire:
     enabled: true
     url: https://jobivoire.ci/jobs
