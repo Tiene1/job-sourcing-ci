@@ -5,6 +5,26 @@ scoring:
   threshold: 4            # score minimum pour garder une offre
   title_multiplier: 3     # un mot-clé dans le titre pèse 3x plus
   positive:               # mot-clé : poids
+    # Nouveaux postes : Développement Web & Mobile
+    développeur web: 5
+    developpeur web: 5
+    développeur mobile: 5
+    developpeur mobile: 5
+    fullstack: 5
+    frontend: 4
+    backend: 4
+    react: 4
+    nextjs: 4
+    nestjs: 4
+    flutter: 4
+    # Nouveaux postes : Réseaux & Sécurité Électronique
+    administrateur réseau: 5
+    technicien système et réseau: 5
+    sécurité électronique: 5
+    courant faible: 4
+    caméra ip: 4
+    contrôle d'accès: 4
+    # Postes industriels / IoT existants
     instrumentiste: 5
     instrumentation: 5
     automaticien: 5
