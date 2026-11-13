@@ -5,9 +5,17 @@ scoring:
   threshold: 4            # score minimum pour garder une offre
   title_multiplier: 3     # un mot-clé dans le titre pèse 3x plus
   positive:               # mot-clé : poids
-   # Domaine 1 : Instrumentation
+   # Instrumentation et dérivés industriels
     instrumentation: 6
     instrumentiste: 6
+    assistant instrumentiste: 5
+    technicien instrumentation junior: 5
+    e&i: 6
+    technicien e&i: 6
+    contrôle-commande: 5
+    controle-commande: 5
+    électronique industrielle: 5
+    electronique industrielle: 5
     régulation: 4
     process: 3
     # Domaine 2 : Administration Réseau
