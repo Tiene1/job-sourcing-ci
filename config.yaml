@@ -5,47 +5,33 @@ scoring:
   threshold: 4            # score minimum pour garder une offre
   title_multiplier: 3     # un mot-clé dans le titre pèse 3x plus
   positive:               # mot-clé : poids
-    # Nouveaux postes : Développement Web & Mobile
-    développeur web: 5
-    developpeur web: 5
-    développeur mobile: 5
-    developpeur mobile: 5
-    fullstack: 5
-    frontend: 4
-    backend: 4
-    react: 4
-    nextjs: 4
-    nestjs: 4
-    flutter: 4
-    # Nouveaux postes : Réseaux & Sécurité Électronique
-    administrateur réseau: 5
-    technicien système et réseau: 5
-    sécurité électronique: 5
-    courant faible: 4
+   # Domaine 1 : Instrumentation
+    instrumentation: 6
+    instrumentiste: 6
+    régulation: 4
+    process: 3
+    # Domaine 2 : Administration Réseau
+    administration réseau: 6
+    administrateur réseau: 6
+    technicien réseau: 5
+    infrastructure réseau: 5
+    cisco: 4
+    mikrotik: 4
+    # Domaine 3 : Sécurité Électronique
+    sécurité électronique: 6
+    technicien sécurité électronique: 6
+    courant faible: 5
     caméra ip: 4
     contrôle d'accès: 4
-    # Postes industriels / IoT existants
-    instrumentiste: 5
-    instrumentation: 5
-    automaticien: 5
-    automatisme: 4
-    métrologue: 4
-    métrologie: 3
-    électromécanicien: 4
-    électromécanique: 3
-    maintenance: 2
-    régulation: 3
-    électricien: 2
-    électrotechnicien: 3
-    plc: 3
-    api: 1
-    siemens: 2
-    schneider: 2
-    scada: 3
-    capteur: 2
-    variateur: 2
-    process: 1
-    technicien: 1
+    # Domaine 4 : Développement Fullstack Web
+    développeur fullstack: 6
+    developpeur fullstack: 6
+    fullstack web: 6
+    react: 5
+    nextjs: 5
+    nestjs: 5
+    node.js: 5
+    php: 4
   negative:
     commercial: -4
     vendeur: -4
